@@ -1,0 +1,2166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BND-SG // 보이넥스트도어 센티넬·가이드 통합 관제 시스템</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+    :root {
+      --bg-base: #070b12;
+      --bg-panel: #0d1421;
+      --bg-card: #111a2b;
+      --border-subtle: rgba(56, 189, 248, 0.16);
+      --accent-sentinel: #f43f5e;
+      --accent-guide: #22d3ee;
+      --accent-amber: #f59e0b;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", sans-serif;
+      background-color: var(--bg-base);
+      color: #e2e8f0;
+      background-image:
+        radial-gradient(circle at 15% 15%, rgba(34, 211, 238, 0.08), transparent 38%),
+        radial-gradient(circle at 85% 80%, rgba(244, 63, 94, 0.08), transparent 40%),
+        linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.03) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+    }
+
+    .font-mono-tech {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .glass-panel {
+      background: rgba(13, 20, 33, 0.86);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.65);
+    }
+
+    .scanline {
+      background: linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0),
+        rgba(255, 255, 255, 0) 50%,
+        rgba(34, 211, 238, 0.03) 50%,
+        rgba(34, 211, 238, 0.03)
+      );
+      background-size: 100% 4px;
+    }
+
+    .pulse-dot {
+      animation: pulseGlow 2s infinite;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.85); }
+    }
+
+    @keyframes dangerFlash {
+      0%, 100% { opacity: 0; }
+      20%, 60% { opacity: 1; }
+      40%, 80% { opacity: 0.2; }
+    }
+
+    .danger-flash-active {
+      animation: dangerFlash 2.2s ease-in-out forwards;
+    }
+
+    @keyframes dangerLoop {
+      0%, 100% { opacity: 0.12; }
+      50% { opacity: 0.92; }
+    }
+
+    .danger-loop-active {
+      animation: dangerLoop 1.5s ease-in-out infinite;
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.3); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.55); }
+  </style>
+</head>
+<body class="min-h-screen antialiased selection:bg-cyan-500/30 selection:text-cyan-100">
+  <!-- Red Emergency Warning Overlay -->
+  <div id="danger-overlay" class="pointer-events-none fixed inset-0 z-50 opacity-0 transition-opacity"
+    style="background: radial-gradient(circle at center, rgba(244, 63, 94, 0.08) 35%, rgba(225, 29, 72, 0.45) 100%); box-shadow: inset 0 0 90px rgba(244, 63, 94, 0.75);">
+    <div class="w-full py-2 bg-rose-600/85 text-white font-mono-tech text-xs font-bold tracking-widest text-center uppercase shadow-lg">
+      ⚠ WARNING // HOSTILE INTRUSION &amp; CRITICAL WAVELENGTH DETECTED ⚠
+    </div>
+  </div>
+
+  <!-- Floating System Notification Toast -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-[calc(100%-2rem)] pointer-events-none"></div>
+  <!-- Security Login Gate -->
+  <div id="login-screen" class="min-h-screen flex items-center justify-center px-4 py-8">
+    <div class="glass-panel w-full max-w-md rounded-2xl p-6 sm:p-8 space-y-6 relative overflow-hidden">
+      <div class="scanline pointer-events-none absolute inset-0 opacity-60"></div>
+
+      <div class="relative text-center space-y-2">
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-cyan-500/20 to-rose-500/20 border border-cyan-400/40 flex items-center justify-center">
+          <i data-lucide="lock" class="w-7 h-7 text-cyan-300"></i>
+        </div>
+        <div class="font-mono-tech text-[11px] uppercase tracking-widest text-cyan-400">
+          BND-SG // SECTOR 04 SECURITY GATE
+        </div>
+        <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">
+          관제국 보안 시스템 접속
+        </h1>
+        <p class="text-xs text-slate-400">
+          센티넬·가이드 통합 관제망에 접근하려면 인가된 아이디와 비밀번호를 입력하세요.
+        </p>
+      </div>
+
+      <form id="login-form" onsubmit="handleLogin(event)" class="relative space-y-4">
+        <div class="space-y-1.5">
+          <label for="login-id" class="block font-mono-tech text-xs text-slate-300">OPERATOR ID (아이디)</label>
+          <div class="relative">
+            <input id="login-id" type="text" autocomplete="username" placeholder="아이디 입력 (예: ONEDOOR)"
+              class="w-full rounded-xl bg-slate-950/90 border border-slate-700 px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition" />
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <label for="login-pw" class="block font-mono-tech text-xs text-slate-300">ACCESS CODE (비밀번호)</label>
+          <div class="relative">
+            <input id="login-pw" type="password" autocomplete="current-password" placeholder="비밀번호 입력 (예: 0530)"
+              class="w-full rounded-xl bg-slate-950/90 border border-slate-700 px-3.5 py-2.5 pr-10 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition" />
+            <button type="button" onclick="togglePasswordVisibility()" aria-label="비밀번호 표시 전환"
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-cyan-300 transition">
+              <i id="pw-eye-icon" data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="login-error" class="hidden rounded-xl bg-rose-500/15 border border-rose-500/40 px-3 py-2 text-xs text-rose-300 font-medium"></div>
+
+        <div id="login-verify" class="hidden rounded-xl bg-emerald-500/15 border border-emerald-400/40 px-3.5 py-3 text-xs space-y-1">
+          <div class="flex items-center gap-2 font-bold text-emerald-300">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot"></span>
+            <span id="login-verify-title">관제국 직원 신원 확인 완료</span>
+          </div>
+          <p id="login-verify-desc" class="text-slate-200 font-mono-tech text-[11px] leading-relaxed"></p>
+        </div>
+
+        <button id="login-submit-btn" type="submit"
+          class="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm transition shadow-lg shadow-cyan-500/20 disabled:opacity-60 disabled:cursor-not-allowed">
+          시스템 접속 (AUTHENTICATE)
+        </button>
+      </form>
+
+      <div class="relative pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+        <div class="font-mono-tech text-slate-400">
+          인가 계정: <span class="text-cyan-300 font-semibold">ONEDOOR</span> / <span class="text-cyan-300 font-semibold">0530</span>
+        </div>
+        <button type="button" onclick="fillDemoCredentials()"
+          class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-200 border border-slate-700 transition text-xs font-medium self-start sm:self-auto">
+          자동 입력
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="app-container" class="hidden max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-5">
+
+    <!-- Top Bureau Header -->
+    <header class="glass-panel rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div class="flex items-start sm:items-center gap-3.5">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-500/20 to-rose-500/20 border border-cyan-400/30 flex items-center justify-center shrink-0">
+          <i data-lucide="shield-alert" class="w-6 h-6 text-cyan-300"></i>
+        </div>
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="font-mono-tech text-[11px] uppercase tracking-widest px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-400/30">
+              BND-SG // SECTOR 04
+            </span>
+            <span class="flex items-center gap-1.5 font-mono-tech text-[11px] text-emerald-400">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot"></span>
+              LIVE TELEMETRY
+            </span>
+          </div>
+          <h1 class="text-lg sm:text-xl font-bold text-white tracking-tight mt-1">
+            보이넥스트도어 센티넬·가이드 통합 관제 센터
+          </h1>
+        </div>
+      </div>
+
+      <!-- Global Status Summary + Nav Tabs -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div class="flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-900/80 border border-slate-700/60 text-xs">
+          <div>
+            <div class="text-slate-400 font-mono-tech text-[10px]">CAMPAIGN</div>
+            <div id="global-day-badge" class="font-mono-tech font-bold text-amber-300 text-sm">DAY 01/15</div>
+          </div>
+          <div class="h-6 w-px bg-slate-700"></div>
+          <div>
+            <div class="text-slate-400 font-mono-tech text-[10px]">AVG STABILITY</div>
+            <div id="global-avg-stability" class="font-mono-tech font-bold text-cyan-300 text-sm">82%</div>
+          </div>
+          <div class="h-6 w-px bg-slate-700"></div>
+          <div>
+            <div class="text-slate-400 font-mono-tech text-[10px]">ALERT LEVEL</div>
+            <div id="global-alert-level" class="font-mono-tech font-bold text-emerald-400 text-sm">NOMINAL</div>
+          </div>
+          <div class="h-6 w-px bg-slate-700"></div>
+          <button type="button" onclick="handleLogout()" title="보안 잠금"
+            class="inline-flex items-center gap-1 font-mono-tech text-[11px] text-slate-300 hover:text-rose-300 transition">
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+            <span id="operator-badge">LOCK</span>
+          </button>
+        </div>
+
+        <nav class="flex flex-wrap bg-slate-900/90 p-1 rounded-xl border border-slate-700/70 gap-1" role="tablist">
+          <button id="tab-btn-dossier" type="button" onclick="switchTab('dossier')" class="tab-btn flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all bg-cyan-500/20 text-cyan-200 border border-cyan-400/40">
+            관제 &amp; 작전
+          </button>
+          <button id="tab-btn-messenger" type="button" onclick="switchTab('messenger')" class="tab-btn flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-400 hover:text-white border border-transparent inline-flex items-center justify-center gap-1.5">
+            <span>메신저방</span>
+            <span id="msg-unread-badge" class="px-1.5 py-0.5 rounded-full text-[10px] font-mono-tech bg-rose-500 text-white font-bold">1</span>
+          </button>
+          <button id="tab-btn-pair" type="button" onclick="switchTab('pair')" class="tab-btn flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-400 hover:text-white border border-transparent">
+            공명 매칭
+          </button>
+          <button id="tab-btn-mission" type="button" onclick="switchTab('mission')" class="tab-btn flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-400 hover:text-white border border-transparent">
+            긴급 출동
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <!-- TAB 1: Integrated Story Operation + Dossier & Guiding Console -->
+    <main id="tab-dossier" class="space-y-5">
+      <!-- Integrated 15-Day Live Operation Panel -->
+      <section class="glass-panel rounded-2xl p-4 sm:p-5 space-y-4 relative overflow-hidden">
+        <div class="scanline pointer-events-none absolute inset-0 opacity-40"></div>
+
+        <div class="relative flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <span id="story-day-badge" class="font-mono-tech text-xs font-bold px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30"></span>
+            <span id="story-phase-badge" class="font-mono-tech text-[11px] px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-400/30"></span>
+            <span id="story-pair-badge" class="font-mono-tech text-[11px] px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-400/30"></span>
+          </div>
+          <div class="flex items-center gap-2 text-xs font-mono-tech">
+            <span class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-slate-300">
+              팀 공명도: <span id="campaign-resonance" class="font-bold text-cyan-300">50%</span>
+            </span>
+            <button type="button" onclick="resetCampaign()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+              1일차 초기화
+            </button>
+          </div>
+        </div>
+
+        <!-- 15-Day Timeline Strip -->
+        <div id="timeline-days" class="relative grid grid-cols-5 sm:grid-cols-[repeat(15,minmax(0,1fr))] gap-1.5"></div>
+
+        <!-- Danger / Stabilized Status Banner -->
+        <div id="story-danger-banner" class="hidden"></div>
+
+        <!-- Active Day Briefing & Direct Dispatch Actions -->
+        <div class="relative grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+          <div class="lg:col-span-7 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <h2 id="story-title" class="text-base sm:text-lg font-bold text-white"></h2>
+              <span id="day1-progress-box" class="hidden font-mono-tech text-[11px] px-2.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-400/30">
+                <span id="day1-progress-text">점검 0/3</span>
+              </span>
+            </div>
+            <p id="story-location" class="font-mono-tech text-[11px] text-slate-400"></p>
+            <div id="story-narration" class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs sm:text-sm text-slate-200 leading-relaxed"></div>
+            <div id="story-feedback" class="hidden p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-400/30 text-xs sm:text-sm text-emerald-100 leading-relaxed space-y-1"></div>
+          </div>
+
+          <div class="lg:col-span-5 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="font-mono-tech text-[11px] text-cyan-400 uppercase">직접 지시 및 출동 (COMMAND)</span>
+              <button type="button" onclick="switchTab('messenger')" class="text-[11px] font-mono-tech text-cyan-300 hover:underline">
+                메신저방 대화 보기 →
+              </button>
+            </div>
+            <div id="story-choices" class="space-y-2"></div>
+          </div>
+        </div>
+      </section>
+      <!-- Role Filter Bar -->
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-mono-tech text-slate-400 uppercase tracking-wider">ROSTER FILTER:</span>
+          <button type="button" onclick="setRoleFilter('ALL')" id="filter-ALL" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white border border-cyan-400/40">
+            전체 (6)
+          </button>
+          <button type="button" onclick="setRoleFilter('SENTINEL')" id="filter-SENTINEL" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900/70 text-slate-400 border border-slate-700/70 hover:text-rose-300">
+            센티넬 (4)
+          </button>
+          <button type="button" onclick="setRoleFilter('GUIDE')" id="filter-GUIDE" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900/70 text-slate-400 border border-slate-700/70 hover:text-cyan-300">
+            가이드 (2)
+          </button>
+        </div>
+        <button type="button" onclick="resetAllStats()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          전체 파장 초기화
+        </button>
+      </div>
+
+      <!-- Roster Grid -->
+      <section id="roster-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5"></section>
+
+      <!-- Selected Member Detail + Guiding Console -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- Left: Dossier Profile & Live Waveform (7 cols) -->
+        <div class="lg:col-span-7 glass-panel rounded-2xl p-5 space-y-5 relative overflow-hidden">
+          <div class="scanline pointer-events-none absolute inset-0 opacity-50"></div>
+
+          <div class="relative flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-slate-800 pb-4">
+            <div class="flex items-center gap-4">
+              <div id="detail-emblem" class="w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 border"></div>
+              <div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span id="detail-codename" class="font-mono-tech text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700"></span>
+                  <span id="detail-role-badge" class="font-mono-tech text-xs font-bold px-2.5 py-0.5 rounded"></span>
+                  <span id="detail-rank-badge" class="font-mono-tech text-xs font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-400/30"></span>
+                </div>
+                <h2 class="text-2xl font-bold text-white mt-1.5 flex items-baseline gap-2">
+                  <span id="detail-name"></span>
+                  <span id="detail-realname" class="text-sm font-normal text-slate-400"></span>
+                </h2>
+                <p id="detail-meta" class="text-xs text-slate-400 font-mono-tech mt-0.5"></p>
+              </div>
+            </div>
+            <div class="text-left sm:text-right shrink-0">
+              <div class="text-[10px] font-mono-tech text-slate-400 uppercase">STATUS</div>
+              <div id="detail-status-pill" class="inline-flex items-center gap-1.5 mt-1 px-3 py-1 rounded-full text-xs font-bold"></div>
+            </div>
+          </div>
+
+          <!-- Ability & Lore -->
+          <div class="relative grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div class="p-3.5 rounded-xl bg-slate-900/75 border border-slate-800">
+              <div class="text-[11px] font-mono-tech text-cyan-400 uppercase mb-1 flex items-center gap-1.5">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> 발현 이능력 (ABILITY)
+              </div>
+              <div id="detail-ability-title" class="font-semibold text-white text-sm"></div>
+              <p id="detail-ability-desc" class="text-xs text-slate-300 mt-1 leading-relaxed"></p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-900/75 border border-slate-800">
+              <div class="text-[11px] font-mono-tech text-rose-400 uppercase mb-1 flex items-center gap-1.5">
+                <i data-lucide="file-text" class="w-3.5 h-3.5"></i> 관제 특이사항 (DOSSIER NOTE)
+              </div>
+              <div id="detail-trait-title" class="font-semibold text-white text-sm"></div>
+              <p id="detail-trait-desc" class="text-xs text-slate-300 mt-1 leading-relaxed"></p>
+            </div>
+          </div>
+
+          <!-- Live Bio-Telemetry Waveform -->
+          <div class="relative p-4 rounded-xl bg-slate-950/90 border border-slate-800 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="font-mono-tech text-xs text-slate-400 flex items-center gap-2">
+                <i data-lucide="activity" class="w-4 h-4 text-cyan-400"></i>
+                실시간 정신 파장 모니터 (NEURAL WAVEFORM)
+              </span>
+              <span id="detail-hz" class="font-mono-tech text-xs text-cyan-300"></span>
+            </div>
+            <div class="w-full h-28 rounded-lg overflow-hidden bg-slate-900/70 border border-slate-800/80">
+              <canvas id="waveform-canvas" class="w-full h-full block"></canvas>
+            </div>
+
+            <!-- 3 Gauges -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div>
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-400">파장 안정도</span>
+                  <span id="gauge-stability-val" class="font-mono-tech font-bold text-cyan-300"></span>
+                </div>
+                <div class="h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <div id="gauge-stability-bar" class="h-full rounded-full transition-all duration-500 bg-cyan-400"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-400">폭주 위험도</span>
+                  <span id="gauge-rampage-val" class="font-mono-tech font-bold text-rose-400"></span>
+                </div>
+                <div class="h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <div id="gauge-rampage-bar" class="h-full rounded-full transition-all duration-500 bg-rose-500"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-400">감각 동기화</span>
+                  <span id="gauge-sync-val" class="font-mono-tech font-bold text-emerald-400"></span>
+                </div>
+                <div class="h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <div id="gauge-sync-bar" class="h-full rounded-full transition-all duration-500 bg-emerald-400"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Interactive Guiding Console & Live Comms Log (5 cols) -->
+        <div class="lg:col-span-5 glass-panel rounded-2xl p-5 flex flex-col justify-between space-y-4">
+          <div class="space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                  <i data-lucide="radio" class="w-4 h-4 text-cyan-400"></i>
+                  실시간 가이딩 제어 콘솔
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">프로토콜을 실행해 요원의 파장과 반응을 확인하세요.</p>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="grid grid-cols-2 gap-2.5">
+              <button type="button" onclick="applyGuiding('contact')" class="p-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/30 text-left transition group">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-cyan-300">접촉 가이딩</span>
+                  <i data-lucide="hand" class="w-4 h-4 text-cyan-400 group-hover:scale-110 transition"></i>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1">안정도 +14% · 폭주 -16%</p>
+              </button>
+
+              <button type="button" onclick="applyGuiding('resonance')" class="p-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-400/30 text-left transition group">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-emerald-300">심층 파장 조율</span>
+                  <i data-lucide="waves" class="w-4 h-4 text-emerald-400 group-hover:scale-110 transition"></i>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1">동기화 +18% · 안정도 +8%</p>
+              </button>
+
+              <button type="button" onclick="applyGuiding('stabilizer')" class="p-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-400/30 text-left transition group">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-amber-300">긴급 안정제 투여</span>
+                  <i data-lucide="syringe" class="w-4 h-4 text-amber-400 group-hover:scale-110 transition"></i>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1">폭주 -25% · 동기화 -6%</p>
+              </button>
+
+              <button type="button" onclick="applyGuiding('overload')" class="p-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-400/30 text-left transition group">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-rose-300">고출력 과부하 테스트</span>
+                  <i data-lucide="zap" class="w-4 h-4 text-rose-400 group-hover:scale-110 transition"></i>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1">폭주 +24% · 안정도 -18%</p>
+              </button>
+            </div>
+
+            <!-- Member Dialogue Quote Box -->
+            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-cyan-500/25">
+              <div class="text-[10px] font-mono-tech text-cyan-400 uppercase tracking-wider mb-1">
+                VOICE INTERCEPT // <span id="quote-speaker"></span>
+              </div>
+              <p id="detail-quote" class="text-sm text-slate-100 leading-relaxed font-medium"></p>
+            </div>
+          </div>
+
+          <!-- Terminal Log -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-mono-tech text-[11px] text-slate-400 uppercase">TELEMETRY LOG</span>
+              <button type="button" onclick="clearLogs()" class="text-[11px] text-slate-500 hover:text-slate-300">로그 비우기</button>
+            </div>
+            <div id="guiding-log" class="h-44 overflow-y-auto rounded-xl bg-slate-950/90 border border-slate-800 p-3 space-y-2 font-mono-tech text-xs"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- TAB 2: Pair Resonance Matrix -->
+    <section id="tab-pair" class="hidden space-y-5">
+      <div class="glass-panel rounded-2xl p-5 space-y-5">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <i data-lucide="git-compare" class="w-5 h-5 text-cyan-400"></i>
+              센티넬·가이드 공명 매칭 매트릭스
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">두 요원을 선택해 파장 일치율과 작전 시너지를 시뮬레이션하세요.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" onclick="setPairPreset('jaehyun','taesan')" class="px-2.5 py-1.5 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-cyan-200 border border-slate-700">추천: 명재현 × 한동민</button>
+            <button type="button" onclick="setPairPreset('sungho','leehan')" class="px-2.5 py-1.5 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-cyan-200 border border-slate-700">추천: 박성호 × 김동현</button>
+            <button type="button" onclick="setPairPreset('riwoo','woonhak')" class="px-2.5 py-1.5 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-cyan-200 border border-slate-700">전투 페어: 이상혁 × 김운학</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+          <!-- Slot A -->
+          <div class="md:col-span-5 p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+            <label for="pair-select-a" class="block font-mono-tech text-xs text-cyan-400 uppercase">AGENT SLOT A</label>
+            <select id="pair-select-a" onchange="renderPairAnalysis()" class="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-400"></select>
+            <div id="pair-card-a" class="pt-2 text-xs text-slate-300"></div>
+          </div>
+
+          <!-- Center Match Gauge -->
+          <div class="md:col-span-2 flex flex-col items-center justify-center py-2 text-center">
+            <div class="text-[10px] font-mono-tech text-slate-400 uppercase">RESONANCE</div>
+            <div id="pair-score" class="text-3xl font-mono-tech font-bold text-cyan-300 my-1">96%</div>
+            <div id="pair-grade" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">S-SYNC</div>
+          </div>
+
+          <!-- Slot B -->
+          <div class="md:col-span-5 p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+            <label for="pair-select-b" class="block font-mono-tech text-xs text-rose-400 uppercase">AGENT SLOT B</label>
+            <select id="pair-select-b" onchange="renderPairAnalysis()" class="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-400"></select>
+            <div id="pair-card-b" class="pt-2 text-xs text-slate-300"></div>
+          </div>
+        </div>
+
+        <!-- Pair Synergy Detail -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="p-4 rounded-xl bg-slate-900/75 border border-slate-800 space-y-2">
+            <div class="font-mono-tech text-xs text-amber-300 uppercase">SYNERGY PROTOCOL</div>
+            <h3 id="pair-synergy-title" class="text-base font-bold text-white"></h3>
+            <p id="pair-synergy-desc" class="text-sm text-slate-300 leading-relaxed"></p>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-950/90 border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-mono-tech text-xs text-slate-400">이중 파장 간섭 그래프 (DUAL INTERFERENCE)</span>
+              <span id="pair-status-label" class="font-mono-tech text-xs text-emerald-400"></span>
+            </div>
+            <div class="h-28 rounded-lg bg-slate-900/60 border border-slate-800 overflow-hidden">
+              <canvas id="pair-canvas" class="w-full h-full block"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: Mission Dispatch -->
+    <section id="tab-mission" class="hidden space-y-5">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- Mission Selector (5 cols) -->
+        <div class="lg:col-span-5 glass-panel rounded-2xl p-5 space-y-4">
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="crosshair" class="w-5 h-5 text-rose-400"></i>
+            긴급 게이트 작전 선택
+          </h2>
+          <div id="mission-list" class="space-y-3"></div>
+        </div>
+
+        <!-- Squad Builder & Result (7 cols) -->
+        <div class="lg:col-span-7 glass-panel rounded-2xl p-5 space-y-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div>
+              <h3 class="text-base font-bold text-white">출동 분대 편성 (최대 3인)</h3>
+              <p class="text-xs text-slate-400">센티넬과 가이드를 함께 편성하면 폭주 억제 보너스가 적용됩니다.</p>
+            </div>
+            <div class="font-mono-tech text-xs px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700">
+              예상 성공률: <span id="mission-est-rate" class="font-bold text-cyan-300">0%</span>
+            </div>
+          </div>
+
+          <div id="squad-selector" class="grid grid-cols-2 sm:grid-cols-3 gap-2.5"></div>
+
+          <div class="flex items-center justify-between gap-3 pt-1">
+            <div id="squad-summary" class="text-xs text-slate-300">요원을 선택해 분대를 구성하세요.</div>
+            <button type="button" onclick="launchMission()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs sm:text-sm transition shrink-0 shadow-lg shadow-cyan-500/20">
+              작전 개시 (DISPATCH)
+            </button>
+          </div>
+
+          <div id="mission-result" class="p-4 rounded-xl bg-slate-950/90 border border-slate-800 font-mono-tech text-xs text-slate-300 space-y-2">
+            <div class="text-slate-500">// 작전 대기 중 — 분대를 편성하고 [작전 개시]를 누르세요.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: Member Messenger Room -->
+    <section id="tab-messenger" class="hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- Room List (4 cols) -->
+        <div class="lg:col-span-4 glass-panel rounded-2xl p-4 space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="message-circle" class="w-4 h-4 text-cyan-400"></i>
+              제4관제국 메신저방
+            </h2>
+            <span class="font-mono-tech text-[10px] text-emerald-400">ENCRYPTED</span>
+          </div>
+          <div id="messenger-room-list" class="space-y-2"></div>
+        </div>
+
+        <!-- Chat Window (8 cols) -->
+        <div class="lg:col-span-8 glass-panel rounded-2xl p-4 sm:p-5 flex flex-col justify-between min-h-[520px] max-h-[680px]">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <h3 id="messenger-room-title" class="text-base font-bold text-white"></h3>
+              <p id="messenger-room-sub" class="text-xs text-slate-400 mt-0.5"></p>
+            </div>
+            <span id="messenger-day-tag" class="font-mono-tech text-xs px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-amber-300"></span>
+          </div>
+
+          <div id="messenger-messages" class="flex-1 overflow-y-auto py-4 space-y-3 pr-1"></div>
+
+          <form onsubmit="sendOperatorChat(event)" class="pt-3 border-t border-slate-800 flex gap-2">
+            <input id="messenger-input" type="text" placeholder="관제관 메시지 보내기 (예: 다들 몸 조심해!)"
+              class="flex-1 rounded-xl bg-slate-950/90 border border-slate-700 px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400" />
+            <button type="submit" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs sm:text-sm transition shrink-0">
+              전송
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    const AGENTS = [
+      {
+        id: 'sungho',
+        name: '박성호',
+        realName: 'SUNGHO',
+        birth: '2003.09.04',
+        codename: 'SOLAR-01',
+        role: 'SENTINEL',
+        rank: 'S급',
+        color: '#fb7185',
+        abilityTitle: '고주파 음파 공명 (Sonic Resonance)',
+        abilityDesc: '청각과 성대 진동을 극대화해 고주파 충격파를 발생시키며, 광역 방어막을 진동으로 파쇄하는 공격형 센티넬.',
+        traitTitle: '완벽주의적 통제 본능',
+        traitDesc: '임무 완성도에 대한 압박이 커질수록 청각 과민 현상이 급상승함. 조용한 공간에서의 미세한 호흡 가이딩에 가장 빠르게 안정됨.',
+        baseStability: 78,
+        baseRampage: 28,
+        baseSync: 74,
+        hz: 442.8,
+        quotes: {
+          idle: '"내 파장이 흔들리는 건 용납 못 해. 호흡만 맞춰주면 바로 정리할게."',
+          contact: '"…손이 생각보다 따뜻하네. 시끄럽던 이명이 한순간에 잦아들었어."',
+          resonance: '"주파수가 딱 맞아떨어졌어. 이 상태라면 고음역 출력도 문제없어."',
+          stabilizer: '"약물은 최후의 수단으로 남겨두지. 그래도 급할 땐 확실히 듣네."',
+          overload: '"크윽— 귀가 울려! 출력 제한 풀렸어, 당장 파장 잡아줘!"'
+        }
+      },
+      {
+        id: 'riwoo',
+        name: '이상혁',
+        realName: 'RIWOO',
+        birth: '2003.10.22',
+        codename: 'KINETIC-02',
+        role: 'SENTINEL',
+        rank: 'A+급',
+        color: '#f97316',
+        abilityTitle: '초고속 기동 & 동체 시력 (Kinetic Overdrive)',
+        abilityDesc: '신체 반사신경과 공간 가속도를 극한으로 끌어올려 단신으로 적진을 돌파하는 근접전 특화 센티넬.',
+        traitTitle: '정적 속의 초집중',
+        traitDesc: '평소에는 말수가 적고 차분하지만, 가속 능력이 과열되면 시간 감각이 왜곡되어 현실 감각을 잃기 쉬움.',
+        baseStability: 84,
+        baseRampage: 22,
+        baseSync: 79,
+        hz: 318.4,
+        quotes: {
+          idle: '"몸은 다 풀렸어. 언제든 투입해도 괜찮아."',
+          contact: '"…고마워. 너무 빠르게만 달리다 보니까, 잠깐 멈추는 법을 잊고 있었나 봐."',
+          resonance: '"시야가 또렷해졌어. 움직임 하나하나가 전부 계산돼."',
+          stabilizer: '"살짝 나른해지긴 하는데, 과열된 근육엔 딱이네."',
+          overload: '"세상이 너무 느리게 보여… 제동이 안 걸려. 누가 좀 잡아줘."'
+        }
+      },
+      {
+        id: 'jaehyun',
+        name: '명재현',
+        realName: 'JAEHYUN',
+        birth: '2003.12.04',
+        codename: 'ANCHOR-03',
+        role: 'GUIDE',
+        rank: 'S급',
+        color: '#22d3ee',
+        abilityTitle: '광역 정신 동기화 (Tactical Anchor)',
+        abilityDesc: '팀 전체의 신경망을 하나로 묶어 실시간 전술 공유와 동시에 다중 가이딩을 수행하는 사령탑 가이드.',
+        traitTitle: '과부하를 숨기는 리더',
+        traitDesc: '센티넬들의 폭주 파장을 자신의 정신으로 대신 받아내는 경향이 있어, 정작 본인의 피로도를 숨기곤 함.',
+        baseStability: 88,
+        baseRampage: 16,
+        baseSync: 92,
+        hz: 528.0,
+        quotes: {
+          idle: '"우리 애들 파장 다 내가 체크하고 있으니까 걱정 마. 내가 닻(Anchor)이 돼줄게."',
+          contact: '"어? 반대로 나를 가이딩해주는 거야? 야, 이거 생각보다 되게 든든한데."',
+          resonance: '"전체 회선 동기화 완료! 지금 우리 팀 호흡 진짜 미쳤다."',
+          stabilizer: '"아, 들켰나? 조금 무리하긴 했는데 이거 맞으면 바로 복귀 가능해."',
+          overload: '"모두의 감각이 한꺼번에 쏟아져 들어와…! 잠깐, 회선 끊을게!"'
+        }
+      },
+      {
+        id: 'taesan',
+        name: '한동민',
+        realName: 'TAESAN',
+        birth: '2004.08.10',
+        codename: 'ECLIPSE-04',
+        role: 'SENTINEL',
+        rank: 'S급',
+        color: '#a855f7',
+        abilityTitle: '암영 침식 & 냉각 제어 (Umbra Cryo)',
+        abilityDesc: '주변 빛과 열에너지를 흡수해 그림자 장벽을 세우고 대상의 움직임을 얼려버리는 고위험 S급 센티넬.',
+        traitTitle: '저체온과 경계심',
+        traitDesc: '능력 사용 후 체온이 급격히 떨어지며, 낯선 가이드의 접촉에는 본능적인 거부 반응을 보임. 신뢰한 상대에게만 각인 허용.',
+        baseStability: 72,
+        baseRampage: 35,
+        baseSync: 68,
+        hz: 214.6,
+        quotes: {
+          idle: '"가까이 오지 마. 지금 내 주변 온도 많이 낮아."',
+          contact: '"…체온이 올라오는 느낌, 나쁘지 않네. 조금만 더 이렇게 있어도 돼?"',
+          resonance: '"머릿속 안개가 걷히는 기분이야. 역시 네 파장이 제일 잘 맞아."',
+          stabilizer: '"굳이 주사까지? 뭐, 폭주하는 것보단 낫겠지."',
+          overload: '"그림자가 통제를 벗어났어…! 다들 뒤로 물러나, 얼어붙기 전에!"'
+        }
+      },
+      {
+        id: 'leehan',
+        name: '김동현',
+        realName: 'LEEHAN',
+        birth: '2004.10.20',
+        codename: 'ABYSS-05',
+        role: 'GUIDE',
+        rank: 'S급',
+        color: '#38bdf8',
+        abilityTitle: '심해 감각 정화 (Abyssal Purification)',
+        abilityDesc: '깊은 바닷속처럼 고요하고 밀도 높은 파장으로 센티넬의 폭주 열기를 단숨에 가라앉히는 정화 특화 가이드.',
+        traitTitle: '4차원적 심연의 고요',
+        traitDesc: '외부 소음에 흔들리지 않는 독특한 정신 세계를 지녀, 어떤 극단적 폭주 상태의 센티넬도 두려움 없이 감싸 안음.',
+        baseStability: 91,
+        baseRampage: 12,
+        baseSync: 89,
+        hz: 174.2,
+        quotes: {
+          idle: '"물속에 잠겨 있는 것처럼 숨을 천천히 쉬어봐요. 금방 괜찮아질 거예요."',
+          contact: '"어라, 손끝이 찌릿하네요. 파장이 아주 예쁘게 빛나고 있어요."',
+          resonance: '"깊은 곳까지 다 닿았어요. 이제 아무 소리도 들리지 않을 만큼 평온하죠?"',
+          stabilizer: '"신기한 맛이 날 것 같은 약이네요. 금방 회복될 거예요."',
+          overload: '"수압이 너무 깊어졌어… 잠깐만, 숨을 고를 시간이 필요해."'
+        }
+      },
+      {
+        id: 'woonhak',
+        name: '김운학',
+        realName: 'WOONHAK',
+        birth: '2006.11.29',
+        codename: 'IGNITE-06',
+        role: 'SENTINEL',
+        rank: 'A+급 (잠재 S)',
+        color: '#eab308',
+        abilityTitle: '고밀도 열역학 돌파 (Thermal Ignition)',
+        abilityDesc: '폭발적인 에너지를 주먹과 발끝에 응축해 전선을 단숨에 돌파하는 막내이자 팀의 히든카드 센티넬.',
+        traitTitle: '감정 연동형 출력 상승',
+        traitDesc: '동료가 위험에 처하면 잠재력이 폭발해 S급 이상의 출력을 내지만, 그만큼 에너지 고갈과 반동이 큼.',
+        baseStability: 80,
+        baseRampage: 26,
+        baseSync: 82,
+        hz: 396.5,
+        quotes: {
+          idle: '"형들! 걱정 마세요, 오늘도 제가 제일 먼저 앞길 뚫고 올게요!"',
+          contact: '"헤헤, 가이딩 받으니까 몸이 막 가벼워졌어요! 한 번 더 해주세요!"',
+          resonance: '"우와, 에너지가 끝도 없이 차오르는 것 같아요! 완전 100%예요!"',
+          stabilizer: '"으악, 주사는 조금 따끔한데… 그래도 바로 진정되네요!"',
+          overload: '"형, 출력이 안 멈춰요…! 몸이 너무 뜨거워, 도와줘요!"'
+        }
+      }
+    ];
+
+    const PAIR_SYNERGIES = {
+      'jaehyun-taesan': {
+        score: 98,
+        title: '앵커 & 이클립스 (완전 상호 각인)',
+        desc: '명재현의 따뜻한 광역 동기화 파장이 한동민의 차가운 암영 냉각을 완벽히 중화합니다. 한동민이 유일하게 경계심 없이 전신 접촉 가이딩을 허용하는 최상위 매칭입니다.'
+      },
+      'sungho-leehan': {
+        score: 96,
+        title: '고주파와 심해의 정적 (감각 균형)',
+        desc: '청각 과민으로 고통받기 쉬운 박성호의 고주파 파장을 김동현의 심해 정화 파장이 물속처럼 부드럽게 감싸 소음을 지워줍니다.'
+      },
+      'jaehyun-woonhak': {
+        score: 94,
+        title: '브레이크 없는 돌파조 (에너지 증폭)',
+        desc: '과열되기 쉬운 김운학의 열역학 출력을 명재현이 실시간으로 제어하며 최대 화력을 끌어냅니다.'
+      },
+      'riwoo-leehan': {
+        score: 92,
+        title: '무중력 가속 제어 (초정밀 조율)',
+        desc: '초고속 기동 중 시간 감각이 흐트러진 이상혁를 김동현이 고요한 수면 위로 끌어올려 정확한 착지점을 잡아줍니다.'
+      },
+      'riwoo-woonhak': {
+        score: 85,
+        title: '더블 어설트 포메이션 (전위 돌파)',
+        desc: '센티넬 간의 합동 작전이지만 이상혁의 기동력과 김운학의 화력이 완벽한 박자로 맞물려 단시간에 게이트를 제압합니다.'
+      },
+      'sungho-taesan': {
+        score: 81,
+        title: '고출력 S급 이중 장벽',
+        desc: '두 S급 센티넬의 시너지는 압도적이지만, 동시 과부하 시 두 사람의 파장이 충돌할 위험이 있어 가이드의 상시 대기가 필수입니다.'
+      }
+    };
+
+    const MISSIONS = [
+      {
+        id: 'm1',
+        code: 'OP-NEON-09',
+        title: '성수동 지하 변전소 고주파 균열 봉쇄',
+        threat: 'S급 이상 현상',
+        reqStability: 75,
+        desc: '도시 전력망에 간섭하는 미확인 음파 균열이 발생했습니다. 정밀 제어와 빠른 진압이 필요합니다.'
+      },
+      {
+        id: 'm2',
+        code: 'OP-FROST-14',
+        title: '한강대교 야간 안개 게이트 정화',
+        threat: 'A+급 복합 오염',
+        reqStability: 68,
+        desc: '시야를 차단하는 정신 오염 안개가 확산 중입니다. 가이드의 광역 정화 파장이 큰 효과를 발휘합니다.'
+      },
+      {
+        id: 'm3',
+        code: 'OP-BLAZE-21',
+        title: '제3격리구역 폭주 개체 긴급 제압',
+        threat: 'CRITICAL 경보',
+        reqStability: 82,
+        desc: '고밀도 에너지 파동이 사방으로 튀고 있습니다. 센티넬-가이드 페어 편성이 강력히 권장됩니다.'
+      }
+    ];
+
+    // Runtime state
+    const state = {
+      selectedId: 'jaehyun',
+      filter: 'ALL',
+      activeTab: 'dossier',
+      selectedMissionId: 'm1',
+      squadIds: ['jaehyun', 'taesan'],
+      stats: {},
+      logs: []
+    };
+
+    AGENTS.forEach(a => {
+      state.stats[a.id] = {
+        stability: a.baseStability,
+        rampage: a.baseRampage,
+        sync: a.baseSync,
+        lastAction: 'idle'
+      };
+    });
+
+    function clamp(val, min = 0, max = 100) {
+      return Math.max(min, Math.min(max, Math.round(val)));
+    }
+
+    function getAgentStatus(st) {
+      if (st.rampage >= 65 || st.stability <= 35) {
+        return { label: '폭주 임박 (CRITICAL)', cls: 'bg-rose-500/20 text-rose-300 border border-rose-500/40', level: 'CRITICAL' };
+      }
+      if (st.rampage >= 40 || st.stability <= 60) {
+        return { label: '주의 요망 (CAUTION)', cls: 'bg-amber-500/20 text-amber-300 border border-amber-500/40', level: 'CAUTION' };
+      }
+      return { label: '안정 (STABLE)', cls: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40', level: 'STABLE' };
+    }
+
+    function addLog(agentName, actionLabel, detail, tone = 'cyan') {
+      const now = new Date();
+      const ts = now.toTimeString().slice(0, 8);
+      state.logs.unshift({ ts, agentName, actionLabel, detail, tone });
+      if (state.logs.length > 30) state.logs.pop();
+      renderLogs();
+    }
+
+    function clearLogs() {
+      state.logs = [];
+      renderLogs();
+    }
+
+    function renderLogs() {
+      const box = document.getElementById('guiding-log');
+      if (!state.logs.length) {
+        box.innerHTML = '<div class="text-slate-500">// 수신된 가이딩 로그가 없습니다.</div>';
+        return;
+      }
+      const toneMap = {
+        cyan: 'text-cyan-300',
+        emerald: 'text-emerald-300',
+        amber: 'text-amber-300',
+        rose: 'text-rose-400'
+      };
+      box.innerHTML = state.logs.map(l => `
+        <div class="border-l-2 border-slate-700 pl-2.5 py-0.5">
+          <div class="flex items-center gap-2">
+            <span class="text-slate-500">[${l.ts}]</span>
+            <span class="font-bold ${toneMap[l.tone] || 'text-cyan-300'}">${l.agentName}</span>
+            <span class="text-slate-400">:: ${l.actionLabel}</span>
+          </div>
+          <div class="text-slate-300 text-[11px] mt-0.5">${l.detail}</div>
+        </div>
+      `).join('');
+    }
+
+    function updateGlobalHeader() {
+      const avg = Math.round(AGENTS.reduce((acc, a) => acc + state.stats[a.id].stability, 0) / AGENTS.length);
+      const hasCritical = AGENTS.some(a => state.stats[a.id].rampage >= 65);
+      const hasCaution = AGENTS.some(a => state.stats[a.id].rampage >= 40);
+
+      const dayBadge = document.getElementById('global-day-badge');
+      if (dayBadge && state.campaign) {
+        dayBadge.textContent = `DAY ${String(state.campaign.currentDay).padStart(2, '0')}/15`;
+      }
+      document.getElementById('global-avg-stability').textContent = `${avg}%`;
+      const alertEl = document.getElementById('global-alert-level');
+      if (hasCritical) {
+        alertEl.textContent = 'CRITICAL';
+        alertEl.className = 'font-mono-tech font-bold text-rose-400 text-sm';
+      } else if (hasCaution) {
+        alertEl.textContent = 'ELEVATED';
+        alertEl.className = 'font-mono-tech font-bold text-amber-300 text-sm';
+      } else {
+        alertEl.textContent = 'NOMINAL';
+        alertEl.className = 'font-mono-tech font-bold text-emerald-400 text-sm';
+      }
+    }
+
+    function setRoleFilter(role) {
+      state.filter = role;
+      ['ALL', 'SENTINEL', 'GUIDE'].forEach(r => {
+        const btn = document.getElementById(`filter-${r}`);
+        if (r === role) {
+          btn.className = 'filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white border border-cyan-400/50';
+        } else {
+          btn.className = 'filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900/70 text-slate-400 border border-slate-700/70 hover:text-white';
+        }
+      });
+      renderRoster();
+    }
+
+    function selectAgent(id) {
+      state.selectedId = id;
+      trackDay1Interaction();
+      renderStoryView();
+      renderRoster();
+      renderDetail();
+    }
+
+    function renderRoster() {
+      const grid = document.getElementById('roster-grid');
+      const filtered = AGENTS.filter(a => state.filter === 'ALL' || a.role === state.filter);
+      grid.innerHTML = filtered.map(a => {
+        const st = state.stats[a.id];
+        const status = getAgentStatus(st);
+        const selected = a.id === state.selectedId;
+        const isSentinel = a.role === 'SENTINEL';
+        return `
+          <button type="button" onclick="selectAgent('${a.id}')"
+            class="text-left p-4 rounded-2xl transition-all border ${selected
+              ? 'bg-slate-800/90 border-cyan-400/70 shadow-lg shadow-cyan-500/10'
+              : 'bg-slate-900/65 border-slate-800 hover:border-slate-600'}">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <span class="font-mono-tech text-[10px] px-1.5 py-0.5 rounded ${isSentinel ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30' : 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'}">
+                    ${a.role}
+                  </span>
+                  <span class="font-mono-tech text-[10px] text-amber-300">${a.rank}</span>
+                </div>
+                <div class="text-base font-bold text-white mt-1.5 flex items-baseline gap-1.5">
+                  ${a.name}
+                  <span class="text-xs font-normal text-slate-400 font-mono-tech">${a.codename}</span>
+                </div>
+              </div>
+              <span class="text-[10px] font-mono-tech px-2 py-0.5 rounded-full ${status.cls}">
+                ${status.level}
+              </span>
+            </div>
+            <div class="mt-3 space-y-1.5">
+              <div class="flex justify-between text-[11px] font-mono-tech">
+                <span class="text-slate-400">안정 ${st.stability}%</span>
+                <span class="${st.rampage >= 50 ? 'text-rose-400 font-bold' : 'text-slate-400'}">폭주 ${st.rampage}%</span>
+              </div>
+              <div class="h-1.5 rounded-full bg-slate-950 overflow-hidden flex">
+                <div style="width: ${st.stability}%; background-color: ${a.color};" class="h-full transition-all duration-300"></div>
+              </div>
+            </div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderDetail() {
+      const a = AGENTS.find(x => x.id === state.selectedId);
+      const st = state.stats[a.id];
+      const status = getAgentStatus(st);
+      const isSentinel = a.role === 'SENTINEL';
+
+      const emblem = document.getElementById('detail-emblem');
+      emblem.style.borderColor = a.color + '66';
+      emblem.style.background = `radial-gradient(circle, ${a.color}30, transparent 70%)`;
+      emblem.innerHTML = `<span class="font-mono-tech font-bold text-xl" style="color:${a.color}">${a.codename.split('-')[1]}</span>`;
+
+      document.getElementById('detail-codename').textContent = a.codename;
+      const roleBadge = document.getElementById('detail-role-badge');
+      roleBadge.textContent = isSentinel ? 'SENTINEL // 센티넬' : 'GUIDE // 가이드';
+      roleBadge.className = `font-mono-tech text-xs font-bold px-2.5 py-0.5 rounded ${isSentinel ? 'bg-rose-500/20 text-rose-300 border border-rose-400/30' : 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/30'}`;
+
+      document.getElementById('detail-rank-badge').textContent = a.rank;
+      document.getElementById('detail-name').textContent = a.name;
+      document.getElementById('detail-realname').textContent = a.realName;
+      document.getElementById('detail-meta').textContent = `BIRTH: ${a.birth} · BASE FREQ: ${a.hz} Hz`;
+
+      const pill = document.getElementById('detail-status-pill');
+      pill.className = `inline-flex items-center gap-1.5 mt-1 px-3 py-1 rounded-full text-xs font-bold ${status.cls}`;
+      pill.innerHTML = `<span class="w-2 h-2 rounded-full bg-current pulse-dot"></span>${status.label}`;
+
+      document.getElementById('detail-ability-title').textContent = a.abilityTitle;
+      document.getElementById('detail-ability-desc').textContent = a.abilityDesc;
+      document.getElementById('detail-trait-title').textContent = a.traitTitle;
+      document.getElementById('detail-trait-desc').textContent = a.traitDesc;
+
+      const currentHz = (a.hz + (st.rampage - 20) * 1.4).toFixed(1);
+      document.getElementById('detail-hz').textContent = `${currentHz} Hz · ${st.rampage >= 60 ? 'UNSTABLE SPIKE' : 'SYNCED'}`;
+
+      document.getElementById('gauge-stability-val').textContent = `${st.stability}%`;
+      document.getElementById('gauge-stability-bar').style.width = `${st.stability}%`;
+
+      document.getElementById('gauge-rampage-val').textContent = `${st.rampage}%`;
+      document.getElementById('gauge-rampage-bar').style.width = `${st.rampage}%`;
+
+      document.getElementById('gauge-sync-val').textContent = `${st.sync}%`;
+      document.getElementById('gauge-sync-bar').style.width = `${st.sync}%`;
+
+      document.getElementById('quote-speaker').textContent = `${a.name} (${a.codename})`;
+      document.getElementById('detail-quote').textContent = a.quotes[st.lastAction] || a.quotes.idle;
+
+      updateGlobalHeader();
+    }
+
+    function applyGuiding(type) {
+      const a = AGENTS.find(x => x.id === state.selectedId);
+      const st = state.stats[a.id];
+      let label = '';
+      let tone = 'cyan';
+
+      if (type === 'contact') {
+        st.stability = clamp(st.stability + 14);
+        st.rampage = clamp(st.rampage - 16);
+        st.sync = clamp(st.sync + 6);
+        label = '접촉 가이딩';
+        tone = 'cyan';
+      } else if (type === 'resonance') {
+        st.stability = clamp(st.stability + 8);
+        st.rampage = clamp(st.rampage - 10);
+        st.sync = clamp(st.sync + 18);
+        label = '심층 파장 조율';
+        tone = 'emerald';
+      } else if (type === 'stabilizer') {
+        st.stability = clamp(st.stability + 10);
+        st.rampage = clamp(st.rampage - 25);
+        st.sync = clamp(st.sync - 6);
+        label = '긴급 안정제 투여';
+        tone = 'amber';
+      } else if (type === 'overload') {
+        st.stability = clamp(st.stability - 18);
+        st.rampage = clamp(st.rampage + 24);
+        st.sync = clamp(st.sync - 10);
+        label = '고출력 과부하 테스트';
+        tone = 'rose';
+        triggerDangerAlert('⚠ CRITICAL RAMPAGE // 센티넬 폭주 임계치 경보 ⚠');
+      }
+
+      st.lastAction = type;
+      trackDay1Interaction();
+      addLog(a.name, label, `안정도 ${st.stability}% | 폭주도 ${st.rampage}% | 동기화 ${st.sync}%`, tone);
+      renderRoster();
+      renderDetail();
+    }
+
+    function resetAllStats() {
+      AGENTS.forEach(a => {
+        state.stats[a.id] = {
+          stability: a.baseStability,
+          rampage: a.baseRampage,
+          sync: a.baseSync,
+          lastAction: 'idle'
+        };
+      });
+      addLog('SYSTEM', '전체 파장 초기화', '모든 요원의 생체 지표가 기준치로 복원되었습니다.', 'cyan');
+      renderRoster();
+      renderDetail();
+    }
+
+    // Tabs
+    function switchTab(tab) {
+      state.activeTab = tab;
+      ['dossier', 'messenger', 'pair', 'mission'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tab);
+        const btn = document.getElementById(`tab-btn-${t}`);
+        if (t === tab) {
+          btn.className = 'tab-btn flex-1 sm:flex-none px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all bg-cyan-500/20 text-cyan-200 border border-cyan-400/40';
+        } else {
+          btn.className = 'tab-btn flex-1 sm:flex-none px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all text-slate-400 hover:text-white border border-transparent';
+        }
+      });
+      if (tab === 'dossier') renderStoryView();
+      if (tab === 'messenger') {
+        state.messenger.unread = 0;
+        updateUnreadBadge();
+        renderMessengerView();
+      }
+      if (tab === 'pair') renderPairAnalysis();
+      if (tab === 'mission') renderMissionView();
+      if (tab !== 'dossier') {
+        stopDangerAlert();
+      }
+    }
+
+    // Pair Matcher
+    function initPairSelects() {
+      const selA = document.getElementById('pair-select-a');
+      const selB = document.getElementById('pair-select-b');
+      const opts = AGENTS.map(a => `<option value="${a.id}">${a.name} (${a.role === 'SENTINEL' ? '센티넬' : '가이드'} · ${a.rank})</option>`).join('');
+      selA.innerHTML = opts;
+      selB.innerHTML = opts;
+      selA.value = 'jaehyun';
+      selB.value = 'taesan';
+    }
+
+    function setPairPreset(a, b) {
+      document.getElementById('pair-select-a').value = a;
+      document.getElementById('pair-select-b').value = b;
+      renderPairAnalysis();
+    }
+
+    function getPairData(idA, idB) {
+      if (idA === idB) {
+        return {
+          score: 100,
+          title: '단독 자기 공명 (SOLO)',
+          desc: '동일 요원이 선택되었습니다. 서로 다른 두 요원을 선택해 센티넬-가이드 공명 시너지를 확인하세요.'
+        };
+      }
+      const key1 = `${idA}-${idB}`;
+      const key2 = `${idB}-${idA}`;
+      if (PAIR_SYNERGIES[key1]) return PAIR_SYNERGIES[key1];
+      if (PAIR_SYNERGIES[key2]) return PAIR_SYNERGIES[key2];
+
+      const a = AGENTS.find(x => x.id === idA);
+      const b = AGENTS.find(x => x.id === idB);
+      const diffRole = a.role !== b.role;
+      if (diffRole) {
+        return {
+          score: 89,
+          title: `${a.name} × ${b.name} 표준 페어 공명`,
+          desc: `센티넬과 가이드의 역할 보완이 안정적으로 작동합니다. ${a.role === 'GUIDE' ? a.name : b.name}의 파장이 전투 중 폭주 억제선 역할을 수행합니다.`
+        };
+      }
+      if (a.role === 'GUIDE' && b.role === 'GUIDE') {
+        return {
+          score: 91,
+          title: '더블 가이드 광역 정화진',
+          desc: '명재현과 김동현의 파장이 겹쳐 대규모 재난 현장에서 다수의 센티넬을 동시에 회복시키는 최상위 후방 지원 라인을 구축합니다.'
+        };
+      }
+      return {
+        score: 79,
+        title: `${a.name} × ${b.name} 이중 화력 편성`,
+        desc: '두 센티넬의 동시 투입으로 순간 제압력이 매우 높으나, 장시간 작전 시 가이드의 원격 조율이 요구됩니다.'
+      };
+    }
+
+    function renderPairAnalysis() {
+      const idA = document.getElementById('pair-select-a').value;
+      const idB = document.getElementById('pair-select-b').value;
+      const a = AGENTS.find(x => x.id === idA);
+      const b = AGENTS.find(x => x.id === idB);
+      const data = getPairData(idA, idB);
+
+      document.getElementById('pair-card-a').innerHTML = `<span class="font-semibold text-white">${a.abilityTitle}</span><br><span class="text-slate-400">기준 파장 ${a.hz} Hz</span>`;
+      document.getElementById('pair-card-b').innerHTML = `<span class="font-semibold text-white">${b.abilityTitle}</span><br><span class="text-slate-400">기준 파장 ${b.hz} Hz</span>`;
+      document.getElementById('pair-score').textContent = `${data.score}%`;
+      document.getElementById('pair-grade').textContent = data.score >= 93 ? 'S-SYNC' : (data.score >= 85 ? 'A-SYNC' : 'B-CAUTION');
+      document.getElementById('pair-synergy-title').textContent = data.title;
+      document.getElementById('pair-synergy-desc').textContent = data.desc;
+      document.getElementById('pair-status-label').textContent = `${a.codename} × ${b.codename}`;
+    }
+
+    // Mission Dispatch
+    function selectMission(id) {
+      state.selectedMissionId = id;
+      renderMissionView();
+    }
+
+    function toggleSquadMember(id) {
+      const idx = state.squadIds.indexOf(id);
+      if (idx >= 0) {
+        state.squadIds.splice(idx, 1);
+      } else {
+        if (state.squadIds.length >= 3) {
+          state.squadIds.shift();
+        }
+        state.squadIds.push(id);
+      }
+      renderMissionView();
+    }
+
+    function calcMissionSuccess() {
+      if (!state.squadIds.length) return 0;
+      const m = MISSIONS.find(x => x.id === state.selectedMissionId);
+      const members = state.squadIds.map(id => AGENTS.find(a => a.id === id));
+      const avgStab = members.reduce((s, a) => s + state.stats[a.id].stability, 0) / members.length;
+      const hasSentinel = members.some(a => a.role === 'SENTINEL');
+      const hasGuide = members.some(a => a.role === 'GUIDE');
+      const pairBonus = (hasSentinel && hasGuide) ? 14 : 0;
+      const sizeBonus = members.length * 6;
+      const difficultyOffset = m.reqStability - 70;
+      return clamp(avgStab + pairBonus + sizeBonus - difficultyOffset, 15, 99);
+    }
+
+    function renderMissionView() {
+      const list = document.getElementById('mission-list');
+      list.innerHTML = MISSIONS.map(m => {
+        const active = m.id === state.selectedMissionId;
+        return `
+          <button type="button" onclick="selectMission('${m.id}')"
+            class="w-full text-left p-4 rounded-xl border transition ${active ? 'bg-slate-800/90 border-rose-400/60' : 'bg-slate-900/70 border-slate-800 hover:border-slate-600'}">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-mono-tech text-[11px] text-rose-300">${m.code}</span>
+              <span class="font-mono-tech text-[10px] px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">${m.threat}</span>
+            </div>
+            <div class="font-bold text-white text-sm mt-1">${m.title}</div>
+            <p class="text-xs text-slate-400 mt-1">${m.desc}</p>
+          </button>
+        `;
+      }).join('');
+
+      const squadEl = document.getElementById('squad-selector');
+      squadEl.innerHTML = AGENTS.map(a => {
+        const picked = state.squadIds.includes(a.id);
+        return `
+          <button type="button" onclick="toggleSquadMember('${a.id}')"
+            class="p-3 rounded-xl border text-left transition ${picked ? 'bg-cyan-500/15 border-cyan-400 text-white' : 'bg-slate-900/70 border-slate-800 text-slate-400 hover:border-slate-600'}">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-sm">${a.name}</span>
+              <span class="font-mono-tech text-[10px] ${a.role === 'SENTINEL' ? 'text-rose-300' : 'text-cyan-300'}">${a.role === 'SENTINEL' ? 'SEN' : 'GUI'}</span>
+            </div>
+            <div class="text-[11px] font-mono-tech text-slate-400 mt-1">안정 ${state.stats[a.id].stability}%</div>
+          </button>
+        `;
+      }).join('');
+
+      const est = calcMissionSuccess();
+      document.getElementById('mission-est-rate').textContent = `${est}%`;
+
+      const pickedNames = state.squadIds.map(id => AGENTS.find(a => a.id === id).name);
+      const hasSen = state.squadIds.some(id => AGENTS.find(a => a.id === id).role === 'SENTINEL');
+      const hasGui = state.squadIds.some(id => AGENTS.find(a => a.id === id).role === 'GUIDE');
+      const summary = document.getElementById('squad-summary');
+      if (!pickedNames.length) {
+        summary.textContent = '최소 1명의 요원을 선택하세요.';
+      } else {
+        summary.textContent = `편성: ${pickedNames.join(', ')} ${hasSen && hasGui ? '(센티넬-가이드 공명 보너스 +14%)' : '(가이드 미포함 주의)'}`;
+      }
+    }
+
+    function launchMission() {
+      const box = document.getElementById('mission-result');
+      if (!state.squadIds.length) {
+        box.innerHTML = '<div class="text-rose-400">[ERROR] 출동할 요원이 선택되지 않았습니다.</div>';
+        return;
+      }
+      const m = MISSIONS.find(x => x.id === state.selectedMissionId);
+      const rate = calcMissionSuccess();
+      const roll = Math.floor(Math.random() * 100) + 1;
+      const success = roll <= rate;
+      const members = state.squadIds.map(id => AGENTS.find(a => a.id === id));
+
+      if (m.id === 'm3' || !success) {
+        triggerDangerAlert('⚠ HOSTILE CONTACT // 긴급 작전 위험 신호 감지 ⚠');
+      }
+      members.forEach(a => {
+        state.stats[a.id].rampage = clamp(state.stats[a.id].rampage + (success ? 6 : 14));
+        state.stats[a.id].stability = clamp(state.stats[a.id].stability - (success ? 4 : 10));
+      });
+      renderRoster();
+      renderDetail();
+      renderMissionView();
+
+      box.innerHTML = `
+        <div class="flex items-center justify-between">
+          <span class="font-bold ${success ? 'text-emerald-400' : 'text-amber-400'}">
+            ${success ? '[MISSION COMPLETE] 작전 성공' : '[PARTIAL CONTAINMENT] 파장 불안정으로 긴급 철수'}
+          </span>
+          <span class="text-slate-500">성공률 ${rate}% (판정 ${roll})</span>
+        </div>
+        <div class="text-slate-300 leading-relaxed">
+          투입 분대(${members.map(x => x.name).join(', ')})가 <strong>${m.title}</strong> 현장에 도착해 작전을 수행했습니다.
+          ${success
+            ? '목표 구역의 이상 파동을 완전히 봉쇄하고 전원 무사히 귀환했습니다.'
+            : '현장 파동 간섭이 예상보다 강해 교전 후 복귀했습니다. 요원 도감 탭에서 가이딩을 진행해 주세요.'}
+        </div>
+      `;
+    }
+
+    // Live Canvas Waveforms
+    let phase = 0;
+    function drawWaveforms() {
+      phase += 0.06;
+
+      // Single Agent Waveform
+      const c1 = document.getElementById('waveform-canvas');
+      if (c1 && state.activeTab === 'dossier') {
+        const rect = c1.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          c1.width = rect.width * window.devicePixelRatio;
+          c1.height = rect.height * window.devicePixelRatio;
+          const ctx = c1.getContext('2d');
+          ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+          const w = rect.width;
+          const h = rect.height;
+          ctx.clearRect(0, 0, w, h);
+
+          const a = AGENTS.find(x => x.id === state.selectedId);
+          const st = state.stats[a.id];
+          const amp = 10 + (st.rampage / 100) * 28;
+          const freq = 0.025 + (st.rampage / 100) * 0.035;
+
+          ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
+          ctx.beginPath();
+          ctx.moveTo(0, h / 2);
+          ctx.lineTo(w, h / 2);
+          ctx.stroke();
+
+          ctx.strokeStyle = a.color;
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          for (let x = 0; x < w; x++) {
+            const jitter = st.rampage > 55 ? Math.sin(x * 0.3 + phase * 3) * 4 : 0;
+            const y = h / 2 + Math.sin(x * freq + phase) * amp * Math.sin(x / w * Math.PI) + jitter;
+            if (x === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+      }
+
+      // Pair Interference Waveform
+      const c2 = document.getElementById('pair-canvas');
+      if (c2 && state.activeTab === 'pair') {
+        const rect = c2.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          c2.width = rect.width * window.devicePixelRatio;
+          c2.height = rect.height * window.devicePixelRatio;
+          const ctx = c2.getContext('2d');
+          ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+          const w = rect.width;
+          const h = rect.height;
+          ctx.clearRect(0, 0, w, h);
+
+          const a = AGENTS.find(x => x.id === document.getElementById('pair-select-a').value);
+          const b = AGENTS.find(x => x.id === document.getElementById('pair-select-b').value);
+
+          [
+            { agent: a, offset: 0 },
+            { agent: b, offset: 1.2 }
+          ].forEach(item => {
+            ctx.strokeStyle = item.agent.color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let x = 0; x < w; x++) {
+              const y = h / 2 + Math.sin(x * 0.03 + phase + item.offset) * 22 * Math.sin(x / w * Math.PI);
+              if (x === 0) ctx.moveTo(x, y);
+              else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+          });
+        }
+      }
+
+      requestAnimationFrame(drawWaveforms);
+    }
+
+    // Auth Gate Logic
+    const VALID_ACCOUNTS = {
+      'ONEDOOR': '0530',
+      'BND-ADMIN': '0530',
+      'JAEHYUN': '1204',
+      'SUNGHO': '0904',
+      'RIWOO': '1022',
+      'TAESAN': '0810',
+      'LEEHAN': '1020',
+      'WOONHAK': '1129'
+    };
+
+    function togglePasswordVisibility() {
+      const pwInput = document.getElementById('login-pw');
+      pwInput.type = pwInput.type === 'password' ? 'text' : 'password';
+    }
+
+    function fillDemoCredentials() {
+      document.getElementById('login-id').value = 'ONEDOOR';
+      document.getElementById('login-pw').value = '0530';
+      document.getElementById('login-error').classList.add('hidden');
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const rawId = document.getElementById('login-id').value.trim().toUpperCase();
+      const pw = document.getElementById('login-pw').value.trim();
+      const errEl = document.getElementById('login-error');
+
+      if (!rawId || !pw) {
+        errEl.textContent = '아이디와 비밀번호를 모두 입력해 주세요.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      if (VALID_ACCOUNTS[rawId] !== pw) {
+        errEl.textContent = '인가되지 않은 아이디이거나 비밀번호가 일치하지 않습니다.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      const STAFF_INFO = {
+        'ONEDOOR': '전담 관제관 (보안 등급 A+)',
+        'BND-ADMIN': '총괄 시스템 관리자 (보안 등급 S)',
+        'JAEHYUN': 'S급 가이드 · 지휘 요원 (ANCHOR-03)',
+        'SUNGHO': 'S급 센티넬 · 인가 요원 (SOLAR-01)',
+        'RIWOO': 'A+급 센티넬 · 인가 요원 (KINETIC-02)',
+        'TAESAN': 'S급 센티넬 · 인가 요원 (ECLIPSE-04)',
+        'LEEHAN': 'S급 가이드 · 인가 요원 (ABYSS-05)',
+        'WOONHAK': 'A+급 센티넬 · 인가 요원 (IGNITE-06)'
+      };
+
+      errEl.classList.add('hidden');
+      const verifyEl = document.getElementById('login-verify');
+      const verifyDesc = document.getElementById('login-verify-desc');
+      const submitBtn = document.getElementById('login-submit-btn');
+
+      verifyDesc.textContent = `직원 확인: ${rawId} · ${STAFF_INFO[rawId] || '인가 직원'} — 관제 시스템에 연결합니다...`;
+      verifyEl.classList.remove('hidden');
+      submitBtn.disabled = true;
+      submitBtn.textContent = '직원 확인 완료 · 접속 중...';
+
+      setTimeout(() => {
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('app-container').classList.remove('hidden');
+        document.getElementById('operator-badge').textContent = rawId;
+        verifyEl.classList.add('hidden');
+        submitBtn.disabled = false;
+        submitBtn.textContent = '시스템 접속 (AUTHENTICATE)';
+        addLog('AUTH', '직원 신원 확인 완료', `${rawId} (${STAFF_INFO[rawId] || '인가 직원'}) 접속이 승인되었습니다.`, 'emerald');
+        renderRoster();
+        renderDetail();
+      }, 1300);
+    }
+
+    function handleLogout() {
+      stopDangerAlert();
+      document.getElementById('app-container').classList.add('hidden');
+      document.getElementById('login-screen').classList.remove('hidden');
+      document.getElementById('login-pw').value = '';
+      document.getElementById('login-error').classList.add('hidden');
+      document.getElementById('login-verify').classList.add('hidden');
+      const submitBtn = document.getElementById('login-submit-btn');
+      submitBtn.disabled = false;
+      submitBtn.textContent = '시스템 접속 (AUTHENTICATE)';
+    }
+
+    // 15-Day Time-Based Campaign Data
+    const CAMPAIGN_DAYS = [
+      // === [DAY 01] 평온기: 시스템 점검 및 일상 교류 (3회 확인 시 2일차 개방) ===
+      {
+        day: 1,
+        phase: '평온기 (STABLE)',
+        pair: '전체 요원 · 일상 점검',
+        title: '1일차: 폭풍 전야의 평온한 관제국',
+        location: 'BND-SG 제4관제국 중앙 라운지',
+        narration: '오늘은 모든 센티넬과 가이드의 파장이 완벽히 안정된 평온한 날입니다. 요원 도감에서 멤버들을 눌러보거나 가이딩 콘솔을 테스트해 보며 시스템이 어떻게 작동하는지 확인하세요. (아래 일상 점검 버튼이나 도감/가이딩 클릭 3회 이상 시 2일차 사건이 시작됩니다.)',
+        speaker: '명재현 (ANCHOR-03)',
+        mood: '여유 · 안정',
+        dialogue: '"오늘처럼만 평화로우면 얼마나 좋을까~ 동민아, 커피 한 잔 마실래? 이상혁랑 김운학이는 벌써 간식 내기 중이던데!"',
+        isDay1: true,
+        choices: [
+          { text: '한동민 × 재현: 휴게실 소파에서 조용히 파장 체크하기', delta: 4, reaction: '한동민이 투덜거리면서도 순순히 손목을 내어줍니다. 재현의 파장이 부드럽게 감돌며 안정도 최상 상태를 확인했습니다.' },
+          { text: '김동현 × 이상혁: 수조 앞에서 느긋하게 감각 싱크 맞추기', delta: 4, reaction: '이상혁가 김동현의 차분한 목소리를 들으며 오랜만에 깊은 휴식을 취합니다.' },
+          { text: '김운학 × 박성호: 훈련장 장비 점검하며 호흡 맞추기', delta: 4, reaction: '박성호가 김운학의 장갑 센서 상태를 꼼꼼히 체크해 줍니다. 모든 수치 정상!' }
+        ]
+      },
+      // === [DAY 02] 초기 사건: 성수동 외곽 미세 음파 균열 (김운학 × 박성호) ===
+      {
+        day: 2,
+        phase: '초기 사건 (INCIDENT)',
+        pair: '김운학 × 박성호',
+        title: '2일차: 성수동 외곽 미세 음파 균열',
+        location: '성수동 폐공장 외곽 경계선',
+        narration: '평온하던 관제국에 첫 번째 약한 경보가 울립니다. 성수동 외곽에서 미확인 저주파 균열이 관측되었습니다. 막내 센티넬 김운학과 가이드 박성호가 첫 정찰에 나섭니다.',
+        speaker: '김운학 (IGNITE-06)',
+        mood: '긴장 · 의욕',
+        dialogue: '"박성호 형, 생각보다 균열 크기는 작은데 주변 공기가 살짝 떨려요. 제가 바로 날려버릴까요?"',
+        choices: [
+          { text: '박성호: "서두르지 마. 내가 파장 틈을 짚어줄 테니 출력 30%로만 쳐."', delta: 5, reaction: '박성호의 정밀한 조율에 맞춰 김운학이 깔끔하게 균열을 닫았습니다. 피해 0%로 첫 사건 해결!' },
+          { text: '박성호: "일단 주변 민간인 대피부터 확인하고 한 번에 밀어붙이자."', delta: 3, reaction: '안전 확보 후 균열을 봉쇄했지만, 잔여 파동 때문에 김운학의 손끝이 살짝 달아올랐습니다.' }
+        ]
+      },
+      // === [DAY 03] 초기 사건: 심야 잔향 간섭과 시간 지연 (김동현 × 이상혁) ===
+      {
+        day: 3,
+        phase: '초기 사건 (INCIDENT)',
+        pair: '김동현 × 이상혁',
+        title: '3일차: 심야 잔향 간섭과 시간 지연',
+        location: '제2훈련동 잔향 구역',
+        narration: '어제의 미세 균열 여파인지, 야간 순찰 중이던 이상혁에게 일시적인 시간 감각 지연 증세가 나타납니다. 김동현이 급히 정화 파장을 연결합니다.',
+        speaker: '이상혁 (KINETIC-02)',
+        mood: '감각 혼선',
+        dialogue: '"동현아… 방금 발걸음이 1초 늦게 들린 것 같아. 주변 소리가 물속에 잠긴 것처럼 먹먹해."',
+        choices: [
+          { text: '김동현: 이상혁의 손을 잡고 깊은 호흡 주기를 직접 동기화한다.', delta: 5, reaction: '심해처럼 고요한 김동현의 파장이 이상혁의 신경계 노이즈를 씻어내며 감각이 즉시 정상화됩니다.' },
+          { text: '김동현: 원거리 음파 정화로 주변 잔향을 먼저 걷어낸다.', delta: 3, reaction: '잔향은 사라졌지만 이상혁가 안정을 되찾기까지 시간이 조금 더 걸렸습니다.' }
+        ]
+      },
+      // === [DAY 04] 초기 사건: 암영 물질 유출과 저체온 경보 (한동민 × 명재현) ===
+      {
+        day: 4,
+        phase: '초기 사건 (INCIDENT)',
+        pair: '한동민 × 재현',
+        title: '4일차: 암영 물질 유출과 저체온 경보',
+        location: '제4관제국 격리 가이딩실 B-02',
+        narration: '채집해 온 균열 샘플에서 검은 암영 파동이 새어 나와 한동민의 능력과 공명해 버립니다. 한동민의 체온이 급격히 떨어지자 리더 재현이 문을 열고 들어옵니다.',
+        speaker: '한동민 (ECLIPSE-04)',
+        mood: '경계 · 저체온',
+        dialogue: '"가까이 오지 마, 형. 샘플 파장이 내 그림자랑 엉켜서 지금 주변 엄청 차가워."',
+        choices: [
+          { text: '재현: 외투를 벗어 한동민에게 덮어주고 양손으로 직접 가이딩한다.', delta: 6, reaction: '재현의 따뜻한 체온과 동기화 파장이 암영의 폭주를 단숨에 눌러줍니다. 한동민의 호흡이 고르게 돌아옵니다.' },
+          { text: '재현: 안정제를 먼저 투여한 뒤 원격 가이딩을 시도한다.', delta: 2, reaction: '급한 불은 껐지만 한동민이 약간의 서운함과 거리감을 느낍니다.' }
+        ]
+      },
+      // === [DAY 05] 초기 사건: 적대 세력 "NOISE" 정찰 파동 포착 (전체 요원) ===
+      {
+        day: 5,
+        phase: '초기 사건 (INCIDENT)',
+        pair: '전체 요원 · 정보 분석',
+        title: '5일차: 적대 세력 "NOISE"의 정찰 파동 포착',
+        location: '제4관제국 중앙 브리핑룸',
+        narration: '지난 사흘간의 소규모 사건들이 우연이 아니었음이 밝혀집니다. 인위적으로 균열을 여는 적대 조직 NOISE의 신호가 레이더에 잡혔습니다.',
+        speaker: '명재현 (ANCHOR-03)',
+        mood: '결의 · 집중',
+        dialogue: '"다들 들었지? 단순 자연 균열이 아니라 누군가 일부러 파동을 흔들고 있어. 이제부터는 각 페어 단위로 상시 대기한다."',
+        choices: [
+          { text: '3개 페어(한동민×재현, 김동현×이상혁, 김운학×박성호)의 상호 비상 회선을 개통한다.', delta: 5, reaction: '모든 페어가 실시간으로 파장을 공유할 수 있는 전술망이 구축되었습니다!' },
+          { text: '개별 휴식을 우선 지시하고 보초만 강화한다.', delta: 2, reaction: '체력은 비축했지만 다중 교란에 대한 대응 속도가 다소 느려졌습니다.' }
+        ]
+      },
+      // === [DAY 06] 확전: 한강대교 안개 게이트 개방 (김동현 × 이상혁) ===
+      {
+        day: 6,
+        phase: '확전 (ESCALATION)',
+        pair: '김동현 × 이상혁',
+        title: '6일차: 한강대교 안개 게이트 개방',
+        location: '한강대교 북단 봉쇄 구역',
+        narration: '짙은 정신 오염 안개와 함께 본격적인 중형 게이트가 열렸습니다. 시야가 차단된 다리 위에서 이상혁의 동체 시력과 김동현의 정화 파장이 빛을 발해야 합니다.',
+        speaker: '김동현 (ABYSS-05)',
+        mood: '침착 · 집중',
+        dialogue: '"이상혁 형, 안개 너머에 적 신호 세 개가 보여요. 내가 길 열어줄 테니까 그대로 돌파해요."',
+        choices: [
+          { text: '김동현이 정화 파장으로 안개를 가르자마자 이상혁가 초고속으로 적핵을 타격한다.', delta: 5, reaction: '완벽한 타이밍! 안개가 걷힘과 동시에 게이트 핵이 단숨에 파괴되었습니다.' },
+          { text: '안개 외곽에서 방어선을 치며 지원군을 기다린다.', delta: 2, reaction: '게이트는 막았으나 다리 위 교통 마비와 약간의 파동 유출이 발생했습니다.' }
+        ]
+      },
+      // === [DAY 07] 확전: 변전소 고주파 테러와 과열 (김운학 × 박성호) ===
+      {
+        day: 7,
+        phase: '확전 (ESCALATION)',
+        pair: '김운학 × 박성호',
+        title: '7일차: 변전소 고주파 테러와 과열',
+        location: '영등포 지하 변전소',
+        narration: '적이 도시 전력망을 노리고 고주파 폭탄을 터뜨렸습니다. 김운학이 방어막을 치려다 과부하에 걸리려 하자, 박성호가 온몸으로 파장을 받아냅니다.',
+        speaker: '김운학 (IGNITE-06)',
+        mood: '과열 · 절박',
+        dialogue: '"박성호 형! 이대로면 변전소가 다 날아가요! 출력 끝까지 올려서 제가 막을게요!"',
+        choices: [
+          { text: '박성호: 김운학의 어깨를 붙잡고 자신의 조율 파장을 한계까지 흘려보낸다.', delta: 6, reaction: '두 사람의 파장이 황금빛으로 겹치며 폭발 에너지를 완전히 흡수했습니다. 김운학이 안도의 한숨을 쉽니다.' },
+          { text: '박성호: 긴급 차단기를 내리고 김운학을 강제로 후방으로 끌어낸다.', delta: 3, reaction: '김운학은 무사했지만 전력 복구에 반나절이 소요되었습니다.' }
+        ]
+      },
+      // === [DAY 08] 확전: 리더 명재현의 한계와 한동민의 역가이딩 (한동민 × 명재현) ===
+      {
+        day: 8,
+        phase: '확전 (ESCALATION)',
+        pair: '한동민 × 재현',
+        title: '8일차: 리더의 한계와 역가이딩',
+        location: '제4관제국 지휘 통제실',
+        narration: '연일 계속된 작전 속에서 전 대원의 신경망을 지탱하던 명재현이 결국 코피를 흘리며 주저앉습니다. 그 순간 가장 먼저 달려와 재현을 부축한 건 한동민입니다.',
+        speaker: '한동민 (ECLIPSE-04)',
+        mood: '단호함 · 걱정',
+        dialogue: '"맨날 남들만 챙기다 이렇게 쓰러질 줄 알았어. 가만히 있어, 형. 이번엔 내가 형 파장 식혀줄 테니까."',
+        choices: [
+          { text: '한동민이 냉각 파장으로 재현의 과열된 두통을 조심스레 가라앉힌다.', delta: 6, reaction: '서툰 듯 다정한 한동민의 역가이딩에 재현의 안색이 빠르게 돌아옵니다. 둘 사이의 신뢰가 한층 깊어집니다.' },
+          { text: '재현을 의무실로 옮기고 다른 요원에게 지휘를 넘긴다.', delta: 3, reaction: '재현은 안정을 취했지만, 지휘 공백으로 잠시 혼선이 빚어졌습니다.' }
+        ]
+      },
+      // === [DAY 09] 확전: 서울 도심 동시다발 교란 작전 (전체 요원) ===
+      {
+        day: 9,
+        phase: '확전 (ESCALATION)',
+        pair: '전체 요원 · 다중 방어',
+        title: '9일차: 동시다발 교란 작전',
+        location: '서울 도심 3개 섹터',
+        narration: '적 세력이 3개 구역에 동시에 균열을 열며 팀을 분산시키려 합니다. 3개의 페어가 각 구역을 맡아 동시에 진압해야 합니다.',
+        speaker: '박성호 (SOLAR-01)',
+        mood: '지휘 · 긴박',
+        dialogue: '"각 페어 위치 확인! 재현·한동민은 북쪽, 이상혁·김동현은 서쪽, 나와 김운학은 남쪽 구역을 맡는다!"',
+        choices: [
+          { text: '모든 페어가 동시에 공명 개방(Full Sync)으로 적 신호를 역추적한다.', delta: 5, reaction: '적의 교란망이 역으로 뚫리며 적 본거지의 대략적인 좌표가 드러났습니다!' },
+          { text: '방어 위주로 버티며 게이트가 닫히길 기다린다.', delta: 2, reaction: '구역은 지켜냈지만 적의 본거지 단서를 놓쳤습니다.' }
+        ]
+      },
+      // === [DAY 10] 확전: 제4관제국 본부 습격 및 방위전 (전체 요원) ===
+      {
+        day: 10,
+        phase: '확전 (ESCALATION)',
+        pair: '전체 요원 · 본부 방위',
+        title: '10일차: 제4관제국 본부 습격',
+        location: 'BND-SG 제4관제국 로비',
+        narration: '적의 선봉대가 마침내 관제국 본부 외벽을 뚫고 침입했습니다. 소중한 보금자리를 지키기 위해 6인 전원이 전면에 나섭니다.',
+        speaker: '이상혁 (KINETIC-02)',
+        mood: '분노 · 전투 태세',
+        dialogue: '"감히 우리 집 문턱을 넘어와? 동현아, 뒤 좀 봐줘. 전부 정리하고 올게."',
+        choices: [
+          { text: '전원 합동 포메이션으로 침입자를 순식간에 제압하고 외벽을 봉쇄한다.', delta: 5, reaction: '적 선봉대가 궤멸되고 본부 방어 시스템이 재가동되었습니다.' },
+          { text: '중앙 데이터실만 사수하며 제한적 교전을 펼친다.', delta: 2, reaction: '데이터는 지켰으나 로비 시설 일부가 파손되었습니다.' }
+        ]
+      },
+      // === [DAY 11] 총력전 준비: 6인 전원 극한 동기화 훈련 (전체 요원) ===
+      {
+        day: 11,
+        phase: '총력전 준비 (CLIMAX PREP)',
+        pair: '전체 요원 · 한계 돌파',
+        title: '11일차: 극한 동기화 훈련',
+        location: '제4관제국 심층 공명실',
+        narration: '다가올 최종 결전을 앞두고, 센티넬과 가이드들이 서로의 한계치를 100% 끌어올리는 극한 동기화 훈련에 돌입합니다.',
+        speaker: '김동현 (ABYSS-05)',
+        mood: '몰입 · 각성',
+        dialogue: '"모두 숨을 깊게 들이마시고… 이제 여섯 개의 파장을 하나로 이어볼게요. 두려워하지 마세요."',
+        choices: [
+          { text: '6인의 파장을 하나의 거대한 공명망으로 완전히 연결한다.', delta: 6, reaction: '전원의 한계 출력이 한 단계 상승하며 각성 상태에 도달했습니다!' },
+          { text: '무리하지 않고 페어별 개별 조율만 진행한다.', delta: 3, reaction: '안전하게 훈련을 마쳤으나 팀 전체 연계 출력은 평년 수준에 머물렀습니다.' }
+        ]
+      },
+      // === [DAY 12] 총력전 준비: 적 핵심 거점 잠입 작전 (한동민×명재현 / 김동현×이상혁) ===
+      {
+        day: 12,
+        phase: '총력전 준비 (CLIMAX PREP)',
+        pair: '한동민 × 재현 / 김동현 × 이상혁',
+        title: '12일차: 적 핵심 거점 잠입',
+        location: '폐쇄된 지하철 9호선 깊은 터널',
+        narration: '드디어 찾아낸 적의 중추 코어. 한동민의 암영 은신과 이상혁의 고속 기동으로 적의 감시망을 뚫고 코어 앞까지 잠입합니다.',
+        speaker: '명재현 (ANCHOR-03)',
+        mood: '은밀 · 긴장',
+        dialogue: '"발소리 죽여. 한동민이 그림자 장막 펼치면 이상혁가 차단 장치 끊고, 바로 빠져나온다."',
+        choices: [
+          { text: '완벽한 호흡으로 적의 방어 결계를 무력화하고 좌표 비콘을 설치한다.', delta: 5, reaction: '성공! 내일 대규모 총공격을 퍼부을 수 있는 완벽한 발판이 마련되었습니다.' },
+          { text: '발각 위험을 피해 외곽 정보만 수집하고 철수한다.', delta: 2, reaction: '무사히 복귀했지만 내일 정면 돌파의 부담이 커졌습니다.' }
+        ]
+      },
+      // === [DAY 13] 총력전: 함정 속 폭주 위기와 각인 완성 (김운학 × 박성호) ===
+      {
+        day: 13,
+        phase: '총력전 (ALL-OUT WAR)',
+        pair: '김운학 × 박성호',
+        title: '13일차: 함정 속의 폭주 위기',
+        location: '적 거점 제1교차로',
+        narration: '결전 개시 직전, 적의 거대한 역파동 함정이 발동해 김운학의 열역학 코어가 폭주 직전에 몰립니다. 박성호가 비명을 지르듯 김운학을 끌어안습니다.',
+        speaker: '박성호 (SOLAR-01)',
+        mood: '절박 · 수호',
+        dialogue: '"김운학아, 정신 차려! 내가 여기 있잖아! 네 불꽃 내가 다 받아줄 테니까 절대 혼자 타버리지 마!"',
+        choices: [
+          { text: '박성호의 전신 가이딩을 믿고 김운학이 폭주 에너지를 역으로 적 함정에 쏘아 보낸다.', delta: 6, reaction: '기적 같은 역전! 적의 함정이 산산조각 나며 김운학과 박성호의 각인이 완성됩니다.' },
+          { text: '방어막을 치고 간신히 함정에서 빠져나온다.', delta: 2, reaction: '생존에는 성공했지만 두 사람 모두 적지 않은 내상을 입었습니다.' }
+        ]
+      },
+      // === [DAY 14] 최종 결전 전야: 여섯 개의 약속 (전체 요원) ===
+      {
+        day: 14,
+        phase: '최종 결전 전야 (EVE OF WAR)',
+        pair: '전체 요원 · 마지막 밤',
+        title: '14일차: 최종 전쟁 전야, 여섯 개의 약속',
+        location: '제4관제국 옥상 관측 데크',
+        narration: '내일이면 모든 것을 끝낼 최종 전쟁이 시작됩니다. 여섯 명의 멤버가 별빛 아래 모여 서로의 손을 맞잡습니다.',
+        speaker: '김운학 (IGNITE-06)',
+        mood: '다짐 · 유대',
+        dialogue: '"형들, 내일 다 끝내고 나면 우리 꼭 다 같이 맛있는 거 먹으러 가요. 아무도 다치지 말기, 약속이에요!"',
+        choices: [
+          { text: '6명 전원 주먹을 맞대며 내일의 승리와 무사 귀환을 맹세한다.', delta: 6, reaction: '팀 공명도가 최고조로 치솟습니다. 이제 모든 준비는 끝났습니다.' },
+          { text: '각자 조용히 방으로 돌아가 내일을 위한 휴식을 취한다.', delta: 3, reaction: '차분한 분위기 속에서 내일 출동 준비를 마칩니다.' }
+        ]
+      },
+      // === [DAY 15] 최종 전쟁: THE FINAL RESONANCE & 엔딩 분기 (6인 전원) ===
+      {
+        day: 15,
+        phase: '최종 전쟁 (FINAL WAR)',
+        pair: '6인 전원 · 총력 결전',
+        title: '15일차: 최종 전쟁 — THE FINAL RESONANCE',
+        location: '서울 상공 초대형 제로 게이트',
+        narration: '하늘을 뒤덮은 초대형 제로 게이트와 적의 최종 병기가 모습을 드러냈습니다. 한동민×재현의 암영·동기화 결계, 이상혁×김동현의 초정밀 심해 타격, 김운학×박성호의 한계 돌파 화력이 하나로 합쳐질 시간입니다!',
+        speaker: '명재현 (ANCHOR-03)',
+        mood: '최고조 · 총공격',
+        dialogue: '"BOYNEXTDOOR 제4관제국, 전 요원 공명 개방! 지금 우리의 파장으로 저 문을 닫아버리자!"',
+        isFinal: true,
+        choices: [
+          { text: '[최종 결전] 3개 페어 동시 필살 공명(TRIPLE RESONANCE)을 발동한다!', delta: 10, reaction: '여섯 개의 빛줄기가 하늘을 가르고 초대형 게이트의 핵심을 관통합니다!' },
+          { text: '[최종 결전] 가이드들의 전력을 센티넬 4인에게 집중해 일점 돌파한다!', delta: 7, reaction: '폭발적인 일격이 적 병기를 무너뜨리며 게이트가 붕괴하기 시작합니다!' }
+        ]
+      }
+    ];
+
+    state.campaign = {
+      currentDay: 1,
+      unlockedDay: 1,
+      day1Interactions: 0,
+      resonance: 50,
+      completedDays: [],
+      awaitingNextDay: false,
+      warEnded: false
+    };
+
+    function trackDay1Interaction() {
+      if (state.campaign.unlockedDay === 1 && state.campaign.day1Interactions < 3) {
+        state.campaign.day1Interactions += 1;
+        if (state.campaign.day1Interactions >= 3) {
+          state.campaign.unlockedDay = 2;
+          addLog('CAMPAIGN', '2일차 사건 개방', '1일차 점검을 완료해 2일차 작전이 열렸습니다!', 'amber');
+        }
+        if (state.activeTab === 'dossier') renderStoryView();
+      }
+    }
+
+    const DANGER_DAYS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    let dangerTimer = null;
+
+    function startDangerLoop(customMsg) {
+      const overlay = document.getElementById('danger-overlay');
+      if (!overlay) return;
+      const bannerText = overlay.querySelector('div');
+      if (bannerText) {
+        bannerText.textContent = customMsg || '⚠ WARNING // 사건 발생 — 대응 완료 시까지 위험 경보 유지 ⚠';
+      }
+      if (dangerTimer) clearTimeout(dangerTimer);
+      overlay.classList.remove('danger-flash-active');
+      overlay.classList.add('danger-loop-active');
+    }
+
+    function stopDangerAlert() {
+      const overlay = document.getElementById('danger-overlay');
+      if (!overlay) return;
+      if (dangerTimer) clearTimeout(dangerTimer);
+      overlay.classList.remove('danger-loop-active', 'danger-flash-active');
+    }
+
+    function triggerDangerAlert(customMsg) {
+      const overlay = document.getElementById('danger-overlay');
+      if (!overlay) return;
+      const bannerText = overlay.querySelector('div');
+      if (bannerText) {
+        bannerText.textContent = customMsg || '⚠ WARNING // HOSTILE INTRUSION & CRITICAL WAVELENGTH DETECTED ⚠';
+      }
+      overlay.classList.remove('danger-loop-active', 'danger-flash-active');
+      void overlay.offsetWidth;
+      overlay.classList.add('danger-flash-active');
+      if (dangerTimer) clearTimeout(dangerTimer);
+      dangerTimer = setTimeout(() => {
+        overlay.classList.remove('danger-flash-active');
+      }, 2300);
+    }
+
+    function showToast(title, body, tone = 'cyan', onClickTab = null) {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const toneStyles = {
+        cyan: 'border-cyan-400/50 bg-slate-900/95 text-cyan-200',
+        emerald: 'border-emerald-400/50 bg-slate-900/95 text-emerald-200',
+        amber: 'border-amber-400/50 bg-slate-900/95 text-amber-200',
+        rose: 'border-rose-500/60 bg-slate-950/95 text-rose-200'
+      };
+      const el = document.createElement('div');
+      el.className = `pointer-events-auto p-3.5 rounded-xl border shadow-2xl backdrop-blur-md transition-all duration-300 ${toneStyles[tone] || toneStyles.cyan}`;
+      el.innerHTML = `
+        <div class="flex items-start justify-between gap-2">
+          <div class="font-mono-tech text-[11px] font-bold">${title}</div>
+          <button type="button" class="text-slate-400 hover:text-white text-xs" onclick="this.parentElement.parentElement.remove()">✕</button>
+        </div>
+        <div class="text-xs text-slate-200 mt-1 leading-relaxed">${body}</div>
+        ${onClickTab ? `<button type="button" onclick="switchTab('${onClickTab}'); this.parentElement.remove();" class="mt-2 text-[11px] font-mono-tech text-cyan-300 hover:underline">바로 확인하기 →</button>` : ''}
+      `;
+      container.prepend(el);
+      setTimeout(() => {
+        if (el.parentElement) el.remove();
+      }, 5500);
+    }
+
+    // Messenger Room Data & State
+    const MESSENGER_ROOMS = [
+      { id: 'group', name: '제4관제국 6인 단톡방', sub: '박성호 · 이상혁 · 명재현 · 한동민 · 김동현 · 김운학', tag: 'ALL' },
+      { id: 'taesan-jaehyun', name: '한동민 × 명재현', sub: 'S급 전담 페어 톡방', tag: 'PAIR 01' },
+      { id: 'leehan-riwoo', name: '김동현 × 이상혁', sub: '감각 동기화 페어 톡방', tag: 'PAIR 02' },
+      { id: 'woonhak-sungho', name: '김운학 × 박성호', sub: '전위-조율 페어 톡방', tag: 'PAIR 03' }
+    ];
+
+    state.messenger = {
+      activeRoom: 'group',
+      unread: 1,
+      chats: {
+        'group': [
+          { sender: 'SYSTEM', text: '--- DAY 01 평온기 ---', time: '09:00', isSystem: true },
+          { sender: '명재현', text: '다들 오늘 파장 수치 완전 안정적이지? 오늘만큼은 푹 쉬자~', time: '09:12' },
+          { sender: '김운학', text: '형! 저 오늘 박성호 형이랑 장비 점검 끝나고 떡볶이 먹어도 돼요?', time: '09:14' },
+          { sender: '박성호', text: '점검 다 끝나면 사줄게. 일단 센서 체크부터 마저 해.', time: '09:15' }
+        ],
+        'taesan-jaehyun': [
+          { sender: 'SYSTEM', text: '--- 한동민 × 명재현 톡방 ---', time: '09:00', isSystem: true },
+          { sender: '명재현', text: '동민아 오늘 체온 괜찮아? 추우면 바로 얘기해.', time: '09:20' },
+          { sender: '한동민', text: '괜찮아 형. 형이나 커피 좀 적당히 마셔.', time: '09:22' }
+        ],
+        'leehan-riwoo': [
+          { sender: 'SYSTEM', text: '--- 김동현 × 이상혁 톡방 ---', time: '09:00', isSystem: true },
+          { sender: '김동현', text: '이상혁 형, 이따가 수조 앞에서 물고기 보면서 같이 쉬어요.', time: '09:25' },
+          { sender: '이상혁', text: '응, 조용하고 좋네. 금방 갈게.', time: '09:26' }
+        ],
+        'woonhak-sungho': [
+          { sender: 'SYSTEM', text: '--- 김운학 × 박성호 톡방 ---', time: '09:00', isSystem: true },
+          { sender: '김운학', text: '박성호 형 저 장갑 열기 제어 연습 진짜 열심히 하고 있어요!', time: '09:30' },
+          { sender: '박성호', text: '무리하지 말고 천천히 올려. 다치면 혼난다.', time: '09:31' }
+        ]
+      }
+    };
+
+    function updateUnreadBadge() {
+      const badge = document.getElementById('msg-unread-badge');
+      if (!badge) return;
+      if (state.messenger.unread > 0) {
+        badge.textContent = state.messenger.unread;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    function appendMessengerDialogue(dayObj, reactionText) {
+      const targetRoom = dayObj.pair.includes('한동민') && dayObj.pair.includes('명재현')
+        ? 'taesan-jaehyun'
+        : dayObj.pair.includes('김동현') && dayObj.pair.includes('이상혁')
+          ? 'leehan-riwoo'
+          : dayObj.pair.includes('김운학') && dayObj.pair.includes('박성호')
+            ? 'woonhak-sungho'
+            : 'group';
+
+      const speakerName = dayObj.speaker.split(' ')[0];
+      const nowTime = new Date().toTimeString().slice(0, 5);
+
+      state.messenger.chats[targetRoom].push(
+        { sender: 'SYSTEM', text: `--- DAY ${String(dayObj.day).padStart(2, '0')} (${dayObj.phase}) ---`, time: nowTime, isSystem: true },
+        { sender: speakerName, text: dayObj.dialogue.replace(/^"|"$/g, ''), time: nowTime },
+        { sender: 'SYSTEM', text: `[관제 결과] ${reactionText}`, time: nowTime, isSystem: true }
+      );
+
+      if (targetRoom !== 'group') {
+        state.messenger.chats['group'].push(
+          { sender: speakerName, text: `[DAY ${String(dayObj.day).padStart(2, '0')} 보고] ${reactionText}`, time: nowTime }
+        );
+      }
+
+      if (state.activeTab !== 'messenger') {
+        state.messenger.unread += 1;
+        updateUnreadBadge();
+      } else {
+        renderMessengerView();
+      }
+    }
+
+    function selectMessengerRoom(roomId) {
+      state.messenger.activeRoom = roomId;
+      renderMessengerView();
+    }
+
+    function sendOperatorChat(e) {
+      e.preventDefault();
+      const input = document.getElementById('messenger-input');
+      const txt = input.value.trim();
+      if (!txt) return;
+      const nowTime = new Date().toTimeString().slice(0, 5);
+      const room = state.messenger.activeRoom;
+      state.messenger.chats[room].push({ sender: '관제관(나)', text: txt, time: nowTime, isMe: true });
+
+      const replies = {
+        'group': { sender: '명재현', text: '관제관님 말씀 들었지? 다들 수신 확인! 화이팅하자!' },
+        'taesan-jaehyun': { sender: '한동민', text: '확인했어요. 명재현 형이랑 같이 잘 처리할게요.' },
+        'leehan-riwoo': { sender: '김동현', text: '네~ 이상혁 형이랑 파장 안정적으로 유지하고 있어요.' },
+        'woonhak-sungho': { sender: '김운학', text: '네 관제관님!! 박성호 형이랑 바로 출동 준비 완료예요!' }
+      };
+      const rep = replies[room] || replies['group'];
+      state.messenger.chats[room].push({ sender: rep.sender, text: rep.text, time: nowTime });
+      input.value = '';
+      renderMessengerView();
+    }
+
+    function renderMessengerView() {
+      const listEl = document.getElementById('messenger-room-list');
+      listEl.innerHTML = MESSENGER_ROOMS.map(r => {
+        const active = r.id === state.messenger.activeRoom;
+        const msgs = state.messenger.chats[r.id];
+        const last = msgs[msgs.length - 1];
+        return `
+          <button type="button" onclick="selectMessengerRoom('${r.id}')"
+            class="w-full text-left p-3 rounded-xl border transition ${active ? 'bg-slate-800/90 border-cyan-400/60' : 'bg-slate-900/70 border-slate-800 hover:border-slate-600'}">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-bold text-sm text-white">${r.name}</span>
+              <span class="font-mono-tech text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300">${r.tag}</span>
+            </div>
+            <div class="text-[11px] text-slate-400 truncate mt-1">${last ? last.text : r.sub}</div>
+          </button>
+        `;
+      }).join('');
+
+      const activeRoomObj = MESSENGER_ROOMS.find(r => r.id === state.messenger.activeRoom);
+      document.getElementById('messenger-room-title').textContent = activeRoomObj.name;
+      document.getElementById('messenger-room-sub').textContent = activeRoomObj.sub;
+      document.getElementById('messenger-day-tag').textContent = `DAY ${String(state.campaign.currentDay).padStart(2, '0')} / 15`;
+
+      const msgBox = document.getElementById('messenger-messages');
+      const msgs = state.messenger.chats[state.messenger.activeRoom];
+      msgBox.innerHTML = msgs.map(m => {
+        if (m.isSystem) {
+          return `<div class="text-center text-[11px] font-mono-tech text-slate-400 py-1 px-3 rounded-full bg-slate-900/80 border border-slate-800 mx-auto w-fit max-w-full">${m.text}</div>`;
+        }
+        if (m.isMe) {
+          return `
+            <div class="flex flex-col items-end">
+              <div class="text-[10px] text-slate-400 mb-0.5">${m.sender} · ${m.time}</div>
+              <div class="max-w-[80%] px-3.5 py-2 rounded-2xl rounded-tr-sm bg-cyan-500 text-slate-950 font-medium text-xs sm:text-sm">${m.text}</div>
+            </div>
+          `;
+        }
+        return `
+          <div class="flex flex-col items-start">
+            <div class="text-[11px] font-bold text-cyan-300 mb-0.5">${m.sender} <span class="font-normal text-slate-500 text-[10px]">${m.time}</span></div>
+            <div class="max-w-[82%] px-3.5 py-2 rounded-2xl rounded-tl-sm bg-slate-800/90 border border-slate-700 text-slate-100 text-xs sm:text-sm leading-relaxed">${m.text}</div>
+          </div>
+        `;
+      }).join('');
+      msgBox.scrollTop = msgBox.scrollHeight;
+    }
+
+    function selectCampaignDay(dayNum) {
+      if (dayNum > state.campaign.unlockedDay) return;
+      state.campaign.currentDay = dayNum;
+      state.campaign.awaitingNextDay = false;
+      renderStoryView();
+    }
+
+    function resetCampaign() {
+      stopDangerAlert();
+      state.campaign = {
+        currentDay: 1,
+        unlockedDay: 1,
+        day1Interactions: 0,
+        resonance: 50,
+        completedDays: [],
+        awaitingNextDay: false,
+        warEnded: false
+      };
+      renderStoryView();
+      updateGlobalHeader();
+    }
+
+    function chooseCampaignOption(idx) {
+      const dayObj = CAMPAIGN_DAYS.find(d => d.day === state.campaign.currentDay);
+      const choice = dayObj.choices[idx];
+      state.campaign.resonance = clamp(state.campaign.resonance + choice.delta, 0, 100);
+      if (!state.campaign.completedDays.includes(dayObj.day)) {
+        state.campaign.completedDays.push(dayObj.day);
+      }
+
+      if (dayObj.isDay1) {
+        state.campaign.day1Interactions = 3;
+      }
+      if (dayObj.day < 15 && state.campaign.unlockedDay <= dayObj.day) {
+        state.campaign.unlockedDay = dayObj.day + 1;
+      }
+      state.campaign.awaitingNextDay = true;
+      stopDangerAlert();
+
+      appendMessengerDialogue(dayObj, choice.reaction);
+      addLog('OPERATION', `DAY ${String(dayObj.day).padStart(2, '0')} 대응 완료`, choice.reaction, 'emerald');
+      showToast(
+        `🔔 [관제 알림] DAY ${String(dayObj.day).padStart(2, '0')} 완료`,
+        `${choice.reaction}<br><span class="text-cyan-300">메신저방에 멤버들의 대화가 도착했습니다!</span>`,
+        'emerald',
+        'messenger'
+      );
+
+      const dangerBanner = document.getElementById('story-danger-banner');
+      if (dangerBanner && dayObj.day >= 2) {
+        dangerBanner.className = 'relative px-4 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-400/40 text-xs font-mono-tech text-emerald-300 flex items-center justify-between gap-2';
+        dangerBanner.innerHTML = '<span class="flex items-center gap-2 font-bold"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>[안정화 완료] 사건이 해결되어 파장이 정상 범위로 돌아왔습니다.</span>';
+      }
+
+      const fb = document.getElementById('story-feedback');
+      fb.innerHTML = `
+        <div class="font-mono-tech text-[11px] text-emerald-300 font-bold">지시 완료 // 팀 공명도 +${choice.delta}% (누적 ${state.campaign.resonance}%)</div>
+        <div>${choice.reaction}</div>
+      `;
+      fb.classList.remove('hidden');
+
+      const choicesEl = document.getElementById('story-choices');
+      if (dayObj.isFinal) {
+        state.campaign.warEnded = true;
+        choicesEl.innerHTML = `
+          <button type="button" onclick="renderFinalWarEnding()"
+            class="w-full px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-rose-500 hover:from-amber-300 hover:to-rose-400 text-slate-950 font-bold text-sm transition shadow-lg">
+            최종 전쟁 결과 확인하기 →
+          </button>
+        `;
+      } else {
+        choicesEl.innerHTML = `
+          <button type="button" onclick="goToNextCampaignDay()"
+            class="w-full px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm transition shadow-lg shadow-cyan-500/20">
+            ${dayObj.day + 1}일차 작전 이어가기 →
+          </button>
+        `;
+      }
+      document.getElementById('campaign-resonance').textContent = `${state.campaign.resonance}%`;
+      updateGlobalHeader();
+    }
+
+    function goToNextCampaignDay() {
+      if (state.campaign.currentDay < 15) {
+        state.campaign.currentDay += 1;
+        state.campaign.awaitingNextDay = false;
+        renderStoryView();
+        const nextObj = CAMPAIGN_DAYS.find(d => d.day === state.campaign.currentDay);
+        if (nextObj && nextObj.day >= 2) {
+          showToast(
+            `⚠ [긴급 경보] DAY ${String(nextObj.day).padStart(2, '0')} 사건 발생`,
+            `${nextObj.title} (${nextObj.pair}) — 관제 상황판에서 대응 지시를 내려주세요.`,
+            'rose'
+          );
+        }
+      }
+    }
+
+    function renderFinalWarEnding() {
+      const isTrueVictory = state.campaign.resonance >= 90;
+      const narrationEl = document.getElementById('story-narration');
+      const fb = document.getElementById('story-feedback');
+      const choicesEl = document.getElementById('story-choices');
+
+      fb.classList.add('hidden');
+
+      narrationEl.innerHTML = isTrueVictory
+        ? `<div class="text-base font-bold text-cyan-300 mb-1.5">TRUE VICTORY // 15일차 최종 전쟁 완전 승리</div>
+           <p class="leading-relaxed">누적 팀 공명도 <strong>${state.campaign.resonance}%</strong> 달성! 한동민×명재현, 김동현×이상혁, 김운학×박성호 세 페어의 완벽한 삼중 공명이 제로 게이트를 완전히 소멸시켰습니다. 제4관제국 6인 전원 부상 없이 무사히 귀환했습니다.</p>`
+        : `<div class="text-base font-bold text-amber-300 mb-1.5">SURVIVAL CLEAR // 15일차 치열한 방어 성공</div>
+           <p class="leading-relaxed">누적 팀 공명도 <strong>${state.campaign.resonance}%</strong>로 초대형 게이트를 닫는 데 성공했습니다! 6인 전원이 끝까지 서로의 곁을 지켜내며 도시를 구해냈습니다.</p>`;
+
+      choicesEl.innerHTML = `
+        <button type="button" onclick="resetCampaign()" class="w-full px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold border border-slate-700 transition">
+          1일차부터 다시 플레이하기
+        </button>
+      `;
+    }
+
+    function renderStoryView() {
+      const timelineEl = document.getElementById('timeline-days');
+      timelineEl.innerHTML = CAMPAIGN_DAYS.map(d => {
+        const unlocked = d.day <= state.campaign.unlockedDay;
+        const current = d.day === state.campaign.currentDay;
+        const done = state.campaign.completedDays.includes(d.day);
+        let cls = 'bg-slate-950/70 text-slate-600 border-slate-800/80 cursor-not-allowed';
+        if (current) {
+          cls = 'bg-cyan-500/25 text-cyan-200 border-cyan-400 font-bold shadow-sm shadow-cyan-500/20';
+        } else if (done) {
+          cls = 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 hover:border-emerald-300';
+        } else if (unlocked) {
+          cls = 'bg-slate-800 text-amber-300 border-amber-400/50 hover:border-amber-300';
+        }
+        return `
+          <button type="button" onclick="selectCampaignDay(${d.day})" ${unlocked ? '' : 'disabled'}
+            class="py-1.5 px-1 rounded-lg border font-mono-tech text-[11px] transition text-center ${cls}">
+            D${String(d.day).padStart(2, '0')}
+          </button>
+        `;
+      }).join('');
+
+      const dayObj = CAMPAIGN_DAYS.find(d => d.day === state.campaign.currentDay);
+      document.getElementById('campaign-resonance').textContent = `${state.campaign.resonance}%`;
+      document.getElementById('story-day-badge').textContent = `DAY ${String(dayObj.day).padStart(2, '0')} / 15`;
+      document.getElementById('story-phase-badge').textContent = dayObj.phase;
+      document.getElementById('story-pair-badge').textContent = dayObj.pair;
+      document.getElementById('story-title').textContent = dayObj.title;
+      document.getElementById('story-location').textContent = dayObj.location;
+
+      const dangerBanner = document.getElementById('story-danger-banner');
+      const isActiveIncident = dayObj.day >= 2 && !state.campaign.awaitingNextDay && !state.campaign.completedDays.includes(dayObj.day);
+      if (dangerBanner) {
+        if (dayObj.day === 1) {
+          dangerBanner.classList.add('hidden');
+        } else if (isActiveIncident) {
+          dangerBanner.className = 'relative px-4 py-2.5 rounded-xl bg-rose-500/15 border border-rose-500/50 text-xs font-mono-tech text-rose-300 flex items-center justify-between gap-2';
+          dangerBanner.innerHTML = `<span class="flex items-center gap-2 font-bold"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 pulse-dot"></span>[위험 경보] DAY ${String(dayObj.day).padStart(2, '0')} 사건 발생! 아래 지시 버튼으로 대응해 안정화하세요.</span>`;
+        } else {
+          dangerBanner.className = 'relative px-4 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-400/40 text-xs font-mono-tech text-emerald-300 flex items-center justify-between gap-2';
+          dangerBanner.innerHTML = '<span class="flex items-center gap-2 font-bold"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>[안정화 완료] 사건이 해결되어 파장이 정상 범위로 돌아왔습니다.</span>';
+        }
+      }
+      if (state.activeTab === 'dossier' && isActiveIncident) {
+        startDangerLoop(`⚠ DAY ${String(dayObj.day).padStart(2, '0')} ALERT // 사건 발생 — 대응 완료 시까지 위험 경보 유지 ⚠`);
+      } else {
+        stopDangerAlert();
+      }
+
+      const d1Box = document.getElementById('day1-progress-box');
+      if (dayObj.isDay1) {
+        d1Box.classList.remove('hidden');
+        document.getElementById('day1-progress-text').textContent =
+          state.campaign.day1Interactions >= 3
+            ? '점검 완료 (2일차 개방)'
+            : `점검 ${state.campaign.day1Interactions} / 3`;
+      } else {
+        d1Box.classList.add('hidden');
+      }
+
+      document.getElementById('story-narration').textContent = dayObj.narration;
+
+      const fb = document.getElementById('story-feedback');
+      const choicesEl = document.getElementById('story-choices');
+      if (!state.campaign.awaitingNextDay) {
+        fb.classList.add('hidden');
+        let buttonsHtml = dayObj.choices.map((c, idx) => `
+          <button type="button" onclick="chooseCampaignOption(${idx})"
+            class="w-full text-left p-3 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-cyan-400/60 text-xs sm:text-sm text-slate-100 transition flex items-center justify-between gap-2 group">
+            <span>${idx + 1}. ${c.text}</span>
+            <span class="font-mono-tech text-[11px] text-cyan-400 opacity-80 group-hover:opacity-100 shrink-0">실행 →</span>
+          </button>
+        `).join('');
+
+        if (dayObj.isDay1 && state.campaign.unlockedDay >= 2) {
+          buttonsHtml += `
+            <button type="button" onclick="goToNextCampaignDay()"
+              class="w-full px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-bold text-xs sm:text-sm transition shadow-lg">
+              점검 완료 · 2일차 사건 시작하기 →
+            </button>
+          `;
+        }
+        choicesEl.innerHTML = buttonsHtml;
+      }
+      updateGlobalHeader();
+    }
+
+    // Boot    // Boot    // Boot
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.lucide) lucide.createIcons();
+      initPairSelects();
+      renderRoster();
+      renderDetail();
+      addLog('SYSTEM', '관제 연결 완료', 'BND-SG 제4관제국 6인 요원 실시간 파장 수신을 시작합니다.', 'cyan');
+      drawWaveforms();
+    });
+  </script>
+</body>
+</html>
